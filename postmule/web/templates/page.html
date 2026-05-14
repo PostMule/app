@@ -203,6 +203,12 @@
     {% elif page == 'mail' %}
 
     {# ── Alert banners ───────────────────────────────────────────── #}
+    {% if request.args.get('setup') == 'done' %}
+    <div class="banner-success" style="margin-bottom:12px;">
+      PostMule is configured and ready. Your first automated run will happen at the scheduled time tonight.
+    </div>
+    {% endif %}
+
     {% if needs_google_reauth %}
     <div class="banner-error" style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <span><b>Google credentials expired.</b> PostMule cannot access Google Drive or Sheets until you reconnect.</span>
