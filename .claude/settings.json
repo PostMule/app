@@ -32,6 +32,15 @@
       "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --cov=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\postmule\" --cov-report=term-missing --tb=no)",
       "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --cov=postmule --cov-report=json --tb=no -q 2>&1)",
       "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest tests/ --cov=postmule --cov-report=json -q)"
+    ],
+    "deny": [
+      "Read(C:/Users/openclaw0123/PostMule/**)",
+      "Read(**/credentials*.yaml)",
+      "Read(**/config.yaml)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)"
     ]
   },
   "hooks": {

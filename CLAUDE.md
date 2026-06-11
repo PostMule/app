@@ -6,6 +6,7 @@
 ## Session Start — Required
 1. Run `git log --oneline -15` and `git status` — commit and push any uncommitted/unpushed changes first
 2. Check Architecture Invariants below — flag any drift before proceeding
+3. Autopilot harness: design, state, and session protocol live in the private `PostMule/ops` repo (clone: `C:\ClaudeCodeFiles\ClaudeCode\PostMule-ops`) — read its README before any harness or process work. Before long interactive sessions, drop a `STOP` file in that clone's root.
 
 ## Session End — Required (before handoff)
 1. Commit all changes
