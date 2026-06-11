@@ -1,10 +1,13 @@
-# PostMule Autopilot — Deployment Harness Design (v4)
+# PostMule Autopilot — Deployment Harness Design (v5)
 
-> Status: DRAFT v4 — full specification, awaiting owner approval (session 2026-06-10).
+> Status: **APPROVED v5** — owner approved deployment 2026-06-10 (second session).
 > v1: charter-level sketch. v2: phase state machine, gates, recovery, schemas, release
 > verification. v3: §5.10 (novel-failure ratchet) + §12 (20 normative amendments from an
 > independent adversarial review). v4: §13 (owner review round 2 — private ops repo,
 > compact-resilience, full SDLC quality gates, model policy, verified auto-fix protocol).
+> v5: §14 (three parallel Fable red teams — reliability, security/containment,
+> process/knowledge — plus owner round 3: telemetry durability, governance lock,
+> decision capture, context budgets, owner dashboard, MVP scoping gate).
 > Later sections override earlier ones where they conflict.
 
 ---
@@ -476,3 +479,244 @@ normal outcome (§5.1). Progress exists only as pushed commits, so a token outag
 lose any; the 2.5h cadence retries twice per reset window; auth failures are
 distinguished from token exhaustion (§12.1) so the system never mistakes a broken
 credential for a temporary limit, and never burns retries on the wrong diagnosis.
+
+---
+
+## 14. v5 amendments — three-perspective Fable red team + owner round 3 (normative)
+
+Three parallel adversarial reviews (reliability/SRE, security/containment,
+process/knowledge), cold context, no authorship stake, top model per §13.4. All
+amendments below are normative and override earlier sections where they conflict.
+
+### 14.1 Cadence — owner's 1.25h proposal amended to event-driven fast retry
+
+Owner proposed doubling cadence to 1.25h ("rate-limited starts are cheap"). **Amended,
+not adopted as stated:** 75-min spacing < 90-min timeout means long runs turn every
+second slot into a `skipped` no-op; successful-run frequency is bounded by Pro window
+*and weekly* caps shared with the owner's interactive use; and count-based failure
+counters would trip `paused` in half the wall-clock time (more owner interruptions).
+The actual goal — never lose a slot to clock/reset misalignment — is met instead by:
+**base cadence stays 2.5h; a run that ends `rate_limited` within its first 5 minutes
+registers a one-shot Task Scheduler trigger at +45 min** (max one outstanding fast-retry;
+a fast-retry never schedules another). If a shorter base cadence is ever mandated, two
+preconditions are normative: `timeout ≤ 0.8 × spacing`, and all failure counters become
+time-windowed ("N failures within 6h"), not raw counts.
+
+### 14.2 Auth/limit classification — no false pauses on the most common event
+
+`gh auth status` failure → `auth_error` (GitHub is not Anthropic-rate-limited). For the
+claude probe: classify `auth_error` only on an explicit auth pattern in output
+(`401|unauthorized|login|OAuth|expired`); a rate-limit pattern **or any unrecognized
+failure** classifies as `rate_limited` (fail open to the benign class — a dead credential
+is still caught by the watchdog's >24h check and the dead-man's switch). `rate_limited`
+never increments the auth-error streak; pausing on auth requires two failures ≥3h apart.
+
+### 14.3 Durable telemetry — the operational record lives in ops, not on this machine
+
+Per-run record schema (all fields mandatory): `{ ts_start, ts_end, duration_s, model,
+mode, task, outcome, exit_code, head_before, head_after, commits[], gate, recovery_invoked,
+denied_commands[], compaction_suspected, disk_free_gb, signature }`.
+**Committed to ops:** wrapper appends each record to `ops/telemetry/runs-<YYYY-MM>.jsonl`;
+for any outcome other than `success|noop|skipped`, the last 80 log lines (scrubbed via the
+credential-deny patterns) go to `ops/telemetry/failures/<ts>-<signature>.txt`. Both are in
+the same postflight commit as STATE. **Local only:** full transcripts (30-day prune).
+Stuck/paused issues must **inline** log excerpts, never reference local paths.
+
+### 14.4 Cross-task recurring-failure detection (zero tokens)
+
+Postflight computes a **failure signature** for every non-success run: last 40 log lines,
+strip timestamps/paths/SHAs/PIDs/line numbers (fixed regex list in
+`scripts/signature.ps1`), `git hash-object --stdin`, first 12 hex chars. Wrapper maintains
+`ops/telemetry/signatures.json` `{signature: {count, first_ts, last_ts, tasks[], runs[]}}`.
+Rules: same signature on **≥3 runs spanning ≥2 tasks within 14 days** → file/update one
+`recurring-failure:<signature>` ops issue; **≥5 occurrences** → enqueue a postmortem run
+(§14.5) and pause if that also fails. This closes the blind spot where one environmental
+cause grinds the whole queue into `stuck` two attempts at a time.
+
+### 14.5 Postmortem-before-pause (owner's multi-persona triage, bounded)
+
+On any transition to `paused=true` whose cause is **not** in `{auth_error, env_error,
+disk, rate_limited, github_unreachable}` (those get the bare issue immediately — an LLM
+run inside a broken environment is the failure retried, not analyzed), the next slot runs
+once in `mode=postmortem`: Sonnet, 30-min timeout, read-only except one file
+`ops/postmortems/<ts>-<signature>.md`, no code edits. Required template (the
+multi-perspective lens in one run — multiple agents would multiply token cost inside a
+failure, not insight): (1) signature + linked runs; (2) **≥2 competing hypotheses** with
+cited evidence; (3) reproduction attempted — command + result; (4) proposed self-repair
+plan as concrete queue tasks; (5) "what would change my mind" per hypothesis. The wrapper
+then files the pause issue with the postmortem attached. One attempt only; postmortem
+failure → bare pause issue. Recurring-signature escalation (§14.4) routes through this.
+
+### 14.6 Governance lock — the agent cannot edit its own cage
+
+The **governed surface** — `.claude/settings.json`, `.claude/settings.local.json`,
+`.claude/autopilot/scripts/**` (incl. gates, release.ps1, recover.ps1), `AUTOPILOT.md`,
+pre-commit hook config, and `.github/workflows/**` in both repos — is owner-only:
+(a) a pre-commit hook rejects any commit touching these paths without an `owner-edit/*`
+tag; (b) a cloud-side ops Action (push-triggered, itself governed) recomputes
+`git hash-object` of every governed file against a committed `governance-baseline.lock`
+and opens a P0 issue + email on unauthorized drift — the one monitor that detects
+*malicious presence*, not just absence; (c) `release.ps1` aborts if any governed file
+differs from baseline. The agent *proposes* governed changes via `ops/proposals/` only.
+The dead-man's-switch and release-build workflows are authored once under supervision
+and frozen; release evidence records the build workflow hash + dependency lockfile hash.
+
+### 14.7 Allowlist replaces denylist (§12.4 superseded)
+
+Headless permission model is **allow-enumerated, deny-everything-else** (headless deny is
+silent and fail-safe per §13.7): `git` (minus `clean`, `push --force`, `reset --hard`,
+`mv`), `pytest`, `ruff|mypy|bandit|pip-audit`, `gh` (read + issue/comment; never
+`release`, never `workflow run`), project scripts by exact path. `python -c`,
+`Start-Process`, `cmd /c`, symlinks, and bare `pip` are not allowlisted; installs go
+through `scripts/safe-pip.ps1` which installs only from the committed lockfile. (A
+denylist was theater while an unrestricted interpreter was allowlisted.)
+
+### 14.8 Triage/execution separation by capability, not prose
+
+(a) A zero-token script fetches new public-issue **titles/numbers only** into
+`ops/triage-inbox.json`. (b) Public issue *bodies*/CI logs are read only by a dedicated
+triage run in read-only plan mode whose sole output is a proposed ops issue for owner
+review. (c) Execution runs work exclusively from the committed ops queue. No single run
+both reads untrusted public prose and holds commit/push capability. Additionally, a
+pre-commit hook on ops rejects any STATE.json commit that adds/removes queue entries or
+changes fields other than `status/attempts/last_run` unless authored by a gate script
+(via gate-written `queue-seed.lock`) or owner-tagged — queue seeding is now tooling, not
+charter prose.
+
+### 14.9 Two-repo transaction rules (§12.15 preserved across the ops/app split)
+
+Fixed ordering, every cross-repo sequence: **(1) attempt-increment → ops, push, verify;
+(2) work → app, push; (3) result/state → ops, push, verify.** Preflight aborts (`error`,
+no task started) if either remote is unreachable. Postflight verifies **both** trees
+clean and **both** branches pushed; any violation → recover.ps1 on both clones.
+Reconciliation at startup: ops says `in-progress` but the app commit is absent on origin
+→ reset task to `pending`; commit present → mark done (idempotent). Gate scripts are
+idempotent: STATE advanced but tag missing → re-push tag, exit 0; tag present but STATE
+not → treat as not-passed, re-run checks. Ops STATE is authoritative; app tags are evidence.
+
+### 14.10 Doctor mode — deterministic revert first, LLM never edits a red tree
+
+Doctor mode's first action is zero-token: `git revert --no-edit` of commits since the
+last green CI SHA, restoring green, then file an issue describing the reverted change.
+LLM forward-fixes happen only in normal mode against green main. (Granting acceptEdits
+to a possibly-compacted agent on an already-broken tree was the riskiest
+capability/state pairing in v4.)
+
+### 14.11 Needs-owner risk taxonomy (deterministic, batched, minimal)
+
+A zero-token postflight diff classifier marks a task `needs-owner` (pausing that task
+only, surfaced on the dashboard §14.15) iff it matches any of: **(1) self-modifying** —
+touches the governed surface (§14.6 enforces; this surfaces); **(2) supply-chain** —
+adds/changes a dependency in `pyproject.toml`/lockfile; **(3) public communications** —
+`gh release`, closing/commenting on public issues/PRs, public README/docs changes.
+**Considered and narrowed:** the red team proposed gating every push to public main
+behind an integration branch. Rejected for now — pre-release, zero users, the release
+gate is the real public boundary, and per-push review would recreate the constant owner
+involvement this design exists to remove. Revisit at P6 if the repo gains users.
+Routine green code commits to main proceed unattended.
+
+### 14.12 Approval is of a diff, not a description
+
+The release-approval issue MUST embed: (a) the full commit range diffstat + `git diff`
+of `v<prev>..rc` (first release: full file list + key-module diffs), (b) the governed-
+surface diff vs `governance-baseline.lock` (must be empty or owner-tagged), (c) quality
+numbers **with the config hash they were computed under** (coverage config is governed —
+the metric's denominator must not be agent-tunable). `release.ps1` aborts on any mismatch.
+
+### 14.13 Decision capture (owner concern — confirmed gap, was actively destructive)
+
+Charter rule: before ending any run that (a) chose between ≥2 viable designs, (b)
+reverted/changed existing behavior, or (c) added a ratchet entry (§5.10/§13.5), append a
+dated entry to the decision log: decision, alternatives rejected, reason, issue/commit
+ref. Routing: product/architecture decisions → `app:docs/decisions.md` (travels with the
+code, public); harness/process decisions → `ops:decisions.md`. When in doubt, app.
+Postflight check: a diff touching `postmule/providers/`, deleting a public function, or
+modifying AUTOPILOT.md/§5 without a same-push decision-log update is a postflight
+violation (same handling as missing HANDOFF).
+
+### 14.14 Context budgets (owner concern — hot files get hard caps, cold storage is free)
+
+Postflight fails any push where `AUTOPILOT.md` > 250 lines, `CLAUDE.md` > 60 lines, or
+`HANDOFF.md` > 80 lines (script-counted, zero tokens). On breach it auto-seeds task
+`pN-compact-<file>`: move detail into cold reference (`docs/` or ops, read on demand —
+the CONTEXT.md pattern) leaving a one-line pointer; the compaction commit appears in the
+next owner approval issue. Standing preference: ratchet rules (§5.10/§13.5) add a
+*script check* rather than a *charter sentence* wherever possible — the charter is the
+hottest file in the system and must not grow monotonically. HANDOFF stays self-erasing
+(one entry) *because* §14.3's committed run history now provides continuity — these two
+rules are a dependency pair; neither may be removed while the other relies on it.
+
+### 14.15 Owner dashboard — single pane of glass
+
+One pinned ops issue, "Autopilot Dashboard", body fully **regenerated** (never appended)
+by watchdog.ps1 each run, fixed sections: PHASE & PROGRESS (done/pending/stuck),
+NEEDS OWNER (paused states, approval requests, needs-owner tasks, proposals — one-line
+links), RECURRING (any signature/outcome class ≥3× in 14 days), LAST 7 RUNS. Every other
+escalation path still files its durable issue but MUST also surface as a line here. The
+dead-man's switch watches this issue's update timestamp. **Owner contract: reading this
+one issue weekly is sufficient involvement.** watchdog.ps1 also writes
+`ops/digests/YYYY-WW.md` weekly (deterministic, zero tokens) for retrospectives.
+
+### 14.16 MVP scoping review — owner-attended, gates the P1 backlog (supersedes "first P1 task")
+
+The Fable-tier MVP/overengineering review cannot flow through the Sonnet-only queue
+(§12.13), and its keep/cut/stub verdicts are exactly the irreversible class needing
+owner sign-off. Therefore: it runs as an **owner-attended Fable session, before the P1
+backlog grind** (no harness dependency — may run before, during, or right after P0).
+Output: one ops PR containing (1) `mvp-review.md` verdict table — one row per
+module/feature: KEEP/CUT/STUB/DEFER + one-sentence reason + exact stub boundary for
+STUBs, **including a verdict row for this harness itself**; (2) the single end-to-end
+v0.1.0 success scenario, stated checkably; (3) rewritten P1 queue (≤10 tasks, each
+traceable to a KEEP row); (4) test-impact rule for CUT/STUB code (delete with the code,
+never skip-decorate); (5) reversed decisions appended to `docs/decisions.md`. No code
+changes, no new features. Owner approves via tag `approved/mvp-scope`; a gate-style
+script then rewrites the P1 queue from the approved table. **The autopilot must not
+start any P1 task except #103 until `approved/mvp-scope` exists.**
+
+### 14.17 Refactoring cadence (owner concern — pushback: mostly already right)
+
+For the P1–P3 horizon (weeks), per-task Sonnet review + ruff/mypy/bandit/coverage
+pre-commit bars (§13.3) are the correct continuous mechanism; a second recurring
+refactor loop pre-release would itself be overengineering, and §14.16 *is* the
+structural refactor for this period. One addition: first P3 task is `p3-simplify-pass` —
+a single Sonnet run applying the §13.3 simplification lens to the diff since
+`approved/mvp-scope`, filing (not executing) anything larger than one run as
+`post-release` issues. The monthly refactor cycle remains P6-only.
+
+### 14.18 Gate-3 gains a product criterion (gates verified process, never product)
+
+Gate-3 additionally requires `validation/e2e-fixture-<ts>.log` containing `E2E_PASS`
+from a scripted full-pipeline run against committed fixture emails (no live
+credentials — live stays P5). The script is a P1 task derived from §14.16's success
+scenario. Without this, v0.1.0 could install flawlessly having never processed mail.
+
+### 14.19 Mechanical hardening (adopted as specified by the reliability review)
+
+1. **Postflight after classification:** classify outcome first; for
+   `rate_limited|auth_error|skipped` postflight checks only clean+synced (no HANDOFF
+   requirement, no recovery on an already-clean tree); full checks for
+   `success|noop|error|timeout`. `noop` = ran, zero commits, explicit no-work HANDOFF
+   entry; zero commits otherwise = `error`.
+2. **Atomic lock:** `[IO.File]::Open(CreateNew)`; record `{pid, process_start_time, ts}`;
+   live only if PID exists **and** start time matches **and** name is
+   `powershell|pwsh|claude`; mismatch = stale → recover. (Windows PID reuse defeated.)
+3. **Scheduler:** register via `Register-ScheduledTask` XML — UTC `StartBoundary`,
+   `RepetitionInterval = cadence`, `StartWhenAvailable = true`, `WakeToRun = true`
+   (Modern Standby caveat documented; dead-man's switch is the named compensating
+   control). Watchdog logs expected-vs-actual run-time deltas. Enable ARSO/auto-logon so
+   Windows Update reboots don't silently kill the logged-on-user task chain.
+4. **Recovery-branch hygiene:** soft-delete invariant applies to PostMule data, not
+   harness branches. The **wrapper** (never the agent) deletes `autopilot/recovery-*`
+   branches that are (a) issue-referenced and (b) >14 days old, recording final SHA.
+   Charter checks at most the 3 newest recovery branches.
+5. **`github_unreachable`** outcome class: network-class gh/git errors never increment
+   doctor/attempt counters; unfiled notifications queue in
+   `ops/telemetry/pending-notifications.jsonl`, flushed next preflight; two consecutive
+   → local marker only, no pause (external, self-healing, and unreportable anyway).
+
+### 14.20 Considered and deferred (recorded so they aren't re-litigated)
+
+Mutation testing / assert-density gates (post-v0.1.0; coverage-config governance §14.12
+covers the near-term gaming risk); separate Windows account for the agent (revisit if
+live-install tasks are automated); integration-branch promotion model (§14.11; revisit
+at P6 if the repo gains users).
