@@ -67,6 +67,18 @@ The docs/ source file is the canonical copy. The static/ copy is what the runnin
 
 ---
 
+## Testing
+
+**CLI log-path tests isolate via an overridable candidates function, not an env var.**
+`postmule/cli.py`'s `logs` command checks a hardcoded fallback path
+(`C:/ProgramData/PostMule/logs/verbose`) so it works on a live install with no config.
+The "no log file" test failed on machines where that path had a log for today. Fixed
+by extracting `_log_candidates(today)` so the test can monkeypatch the search paths
+directly, rather than introducing a `POSTMULE_CONFIG`-based redirect that the command
+itself doesn't otherwise use. See #103.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**

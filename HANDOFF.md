@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-10: Designed the autopilot deployment harness — `.claude/autopilot/PLAN.md` v1→v4.1 (phase state machine, gates, recovery, red-team amendments, private ops repo, model policy). Status: draft, owner has since approved proceeding. Session ended prematurely (unplanned OS restart) after final commit `4b26219` — all work was pushed; only the conversation was lost.
+Session 2026-06-11 (autopilot, p0-supervised-smoke): Ran the supervised acceptance run for the harness (PLAN §10 chunk 3), executing #103 end-to-end. Fixed `postmule/cli.py` `logs` command — extracted `_log_candidates(today)` so `test_logs_no_file_prints_message` no longer depends on whether a live install has a log file for today's date; the test now monkeypatches the candidate paths. Also fixed 32 pre-existing ruff violations in `postmule/cli.py` and `tests/unit/test_cli.py`, required to pass the repo's ruff pre-commit gate on those files. All 1091 tests pass. Pushed `b02f34f`. Issue #103 was already closed (likely by a prior incomplete run) — verified the fix landed regardless. Logged the design decision in `docs/decisions.md` under "Testing".
 
 ---
 
@@ -25,7 +25,6 @@ Session 2026-06-10: Designed the autopilot deployment harness — `.claude/autop
 **In progress:** Live validation (#30) — PostMule installed and running at C:\Users\openclaw0123\PostMule. Dry runs pass clean. Next step: trigger a real run once a VPM scan notification email arrives.
 
 **Other open issues (blocked):**
-- #103 — logs test fails on machines with live install (pre-existing; easy fix)
 - #101 — setup.ps1 Gemini regex bug (will be closed when #102 is built)
 - #97 — Cloud deployment investigation (owner must decide platform/cost tradeoffs first)
 - #96 — Installer validation (unblocked once #102 is done)
