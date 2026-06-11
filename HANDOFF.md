@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-11 (autopilot, p0-supervised-smoke): Ran the supervised acceptance run for the harness (PLAN §10 chunk 3), executing #103 end-to-end. Fixed `postmule/cli.py` `logs` command — extracted `_log_candidates(today)` so `test_logs_no_file_prints_message` no longer depends on whether a live install has a log file for today's date; the test now monkeypatches the candidate paths. Also fixed 32 pre-existing ruff violations in `postmule/cli.py` and `tests/unit/test_cli.py`, required to pass the repo's ruff pre-commit gate on those files. All 1091 tests pass. Pushed `b02f34f`. Issue #103 was already closed (likely by a prior incomplete run) — verified the fix landed regardless. Logged the design decision in `docs/decisions.md` under "Testing".
+Session 2026-06-11: Deployed the autopilot harness (PLAN v5.1, now in the private `PostMule/ops` repo — read its README first for the session protocol). Three Fable design reviews (§14), owner round-4 amendments (§15), two implementation red-team rounds (§15.7, 14 + 7 findings, all fixed and re-verified). Supervised acceptance run executed the #103 fix end-to-end through the harness (1091 tests green, pushed `b02f34f`). Gate-0 passed; phase is P1; scheduled tasks live at 2.5h cadence. P1 work (other than #103) is blocked until the owner-attended MVP scoping review (#105) produces the `approved/mvp-scope` tag.
 
 ---
 
@@ -16,7 +16,7 @@ Session 2026-06-11 (autopilot, p0-supervised-smoke): Ran the supervised acceptan
 > Check `gh issue list --repo PostMule/app` for current state before starting.
 > Do not suggest or offer to work on blocked or deferred issues — only note they exist.
 
-**Recommended:** Deploy the autopilot harness per `.claude/autopilot/PLAN.md` §10 build order (owner approved 2026-06-10). After P0, the first P1 task is the Fable-tier MVP/overengineering critical review of PostMule itself.
+**Recommended:** Run the owner-attended MVP scoping review (#105, spec: ops PLAN §14.16) in a Fable session. It gates the entire P1 backlog; approve its verdict table with the `approved/mvp-scope` tag. The autopilot handles everything else on schedule — owner contract is reading the pinned "Autopilot Dashboard" issue in PostMule/ops weekly.
 
 **Previously recommended (now queued for the autopilot):** Continue #102 chunk 3 — polish and close. Remaining work: (a) test the wizard end-to-end against a real Gmail + Gemini account to confirm no edge cases, (b) close #101 (setup.ps1 Gemini regex bug — superseded by the wizard), (c) close #102 if wizard is feature-complete. Also check if step 4 (master password) needs a tester or if it's fine as-is (no external service to test).
 
