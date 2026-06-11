@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-11: Deployed the autopilot harness (PLAN v5.1, now in the private `PostMule/ops` repo — read its README first for the session protocol). Three Fable design reviews (§14), owner round-4 amendments (§15), two implementation red-team rounds (§15.7, 14 + 7 findings, all fixed and re-verified). Supervised acceptance run executed the #103 fix end-to-end through the harness (1091 tests green, pushed `b02f34f`). Gate-0 passed; phase is P1; scheduled tasks live at 2.5h cadence. P1 work (other than #103) is blocked until the owner-attended MVP scoping review (#105) produces the `approved/mvp-scope` tag.
+Session 2026-06-11 (autopilot): queue had no takeable task (only `p1-await-mvp-scope`, blocked on the owner-attended #105 review), so ran `gate-1-code-green.ps1`. It failed on every check: coverage 71.43% (need 80%), ruff 374 errors, mypy 45 errors in 16 files, bandit 32 findings (4 High), pip-audit 20 known vulns across 8 packages, an issue-hygiene check on 8 open issues missing allowlisted labels, and an apparent false-positive in the CI-green check (filters all 10 recent runs instead of just HEAD's). Seeded 7 new phase-1 queue tasks (`p1-gate-coverage`, `p1-gate-ruff`, `p1-gate-mypy`, `p1-gate-bandit`, `p1-gate-pip-audit`, `p1-gate-ci-check`, `p1-gate-issue-labels`) with details in ops `STATE.json`. No code changes this run.
 
 ---
 
