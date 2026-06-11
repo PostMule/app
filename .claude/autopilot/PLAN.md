@@ -23,7 +23,8 @@
    chunk, which the next run's recovery procedure preserves on a branch.
 4. **Fail fast, fail cheap, retry on schedule.** Token exhaustion is an expected, normal
    outcome — not an error. Every run is bounded (one chunk, hard timeout); the scheduler
-   provides the retry loop aligned to Pro's 5-hour usage windows.
+   provides the retry loop — **two attempts per 5-hour usage window** (2.5h cadence), so
+   a clock/reset mismatch costs at most one missed slot, never progress.
 5. **Self-protection over persistence.** Repeated failure pauses the system and notifies
    the owner rather than burning tokens on a loop it cannot escape.
 
@@ -243,8 +244,12 @@ explicit human approval tag. Five independent machine gates + one human gate.
 
 - **Engine:** `--model sonnet`, no fallback (§12.13). Fable 5/Opus reserved for owner
   sessions. All gates, recovery, watchdog, release = pure PowerShell, **zero tokens**.
-- **Cadence:** every 5h (Pro window reset). Each run ≤1 chunk, ≤90 min. If runs visibly
-  crowd out interactive use, drop to 2/day by re-running `register-tasks.ps1 -Cadence 12h`.
+- **Cadence: every 2.5h** — two attempts per 5-hour Pro window. A run that starts with
+  no tokens available exits `rate_limited` at near-zero cost, so doubling attempts is
+  nearly free and makes progress immune to clock/reset misalignment (§12.10): the worst
+  case is a failed start, never lost work. No overlap risk at 2.5h spacing vs the 90-min
+  timeout, and the lock (§5.8) guards it anyway. Retune anytime via
+  `register-tasks.ps1 -CadenceHours N` if runs crowd out interactive use.
 - **Context discipline:** charter caps file reads (read only what the task touches),
   forbids subagents, forbids re-reading CONTEXT.md unless the task needs it.
 
@@ -441,3 +446,33 @@ This is strictly stronger than a confidence threshold: a verified-behavior gate 
 working equivalent of ">95% confidence" that doesn't depend on the model grading itself.
 The regression test also persists, so the same failure can never silently return — each
 auto-fix permanently hardens the suite (the ratchet again).
+
+### 13.7 Pre-approval permission & capability audit (verified live, 2026-06-10)
+
+Tested on this machine, not assumed:
+
+| Capability | Result |
+|---|---|
+| `gh` auth | ✅ Logged in; scopes `repo`, `workflow`, `read:org`, `gist` |
+| Create private `PostMule/ops` + Actions | ✅ Org role = **admin**; `repo`+`workflow` scopes suffice |
+| Task Scheduler registration | ✅ Per-user task created and deleted without admin rights |
+| Headless engine | ✅ `claude -p --model sonnet` round-trip succeeded (the exact scheduled invocation) |
+| `git push` from this user context | ✅ Proven 7× this session (credential manager, logged-on user — matches §12.1 task mode) |
+| pytest / coverage in venv | ✅ Present (Python 3.12.10) |
+| ruff / mypy / bandit / pip-audit | ⬜ Not installed — chunk-1 task; `pip install` already allowlisted, no permission barrier |
+| **Windows Sandbox** | ❌ **Not installed** — gate-2 dependency. One-time owner action (admin + reboot): `Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All`. Needed before gate-2, not before chunk 1. Gate-2 preflight probes for `WindowsSandbox.exe` and pauses with an explicit `env_error` message if absent. |
+
+**Not-stuck guarantee for unattended runs:** in headless mode a non-allowlisted command
+doesn't prompt — it's denied. So: chunk 1 authors a comprehensive allow/deny permission
+set; the charter requires every denied command to be surfaced in the run record and
+HANDOFF (never silently stuck); build-chunk-3's supervised run exists precisely to catch
+allowlist gaps before unattended mode; and a transcript-mining pass
+(fewer-permission-prompts) runs after the first supervised runs to close the residue.
+A permission gap after handoff therefore costs one logged, visible, skipped task — and
+gets ratcheted into the allowlist — never a hang.
+
+**Token-reset self-recovery (restated as a guarantee):** `rate_limited` is a first-class
+normal outcome (§5.1). Progress exists only as pushed commits, so a token outage can't
+lose any; the 2.5h cadence retries twice per reset window; auth failures are
+distinguished from token exhaustion (§12.1) so the system never mistakes a broken
+credential for a temporary limit, and never burns retries on the wrong diagnosis.
