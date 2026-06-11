@@ -1,4 +1,39 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/pytest tests/unit/ -x -q)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -q)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -q --tb=no)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -q --tb=short)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -q --tb=long)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -q --tb=no --ignore=tests/unit/test_google_drive.py)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -q --tb=short --no-cov)",
+      "Bash(.venv/Scripts/pytest --tb=short)",
+      "Bash(.venv/Scripts/pytest tests/unit/ --tb=short -q)",
+      "Bash(.venv/Scripts/pytest tests/unit/ -v --tb=short)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(C:ClaudeCodeFilesClaudeCodePostMule.venvScriptspip list:*)",
+      "Bash(gcloud version:*)",
+      "Bash(export GCLOUD=\"/c/Users/openclaw0123/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud\")",
+      "Bash(\"$GCLOUD\" version:*)",
+      "Bash(\"/c/Users/openclaw0123/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud\" auth list --filter=\"status:ACTIVE\" --format=\"value\\(account\\)\" 2>/dev/null)",
+      "Bash(bash scripts/dev_setup.sh)",
+      "Bash(GCLOUD=\"/c/Users/openclaw0123/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud\" bash scripts/dev_setup.sh)",
+      "Bash(.venv/Scripts/python scripts/google_auth.py)",
+      "Bash(PYTHONPATH=\"C:/ClaudeCodeFiles/ClaudeCode/PostMule\" .venv/Scripts/python scripts/google_auth.py)",
+      "Bash(\"/c/Users/openclaw0123/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud\" services list --project=postmule-app --enabled --format=\"value\\(config.name\\)\" 2>&1)",
+      "Bash(PYTHONPATH=\"C:/ClaudeCodeFiles/ClaudeCode/PostMule\" .venv/Scripts/python -m postmule --dry-run)",
+      "Bash(find C:/ClaudeCodeFiles/ClaudeCode/PostMule/postmule -name *.py)",
+      "Bash(PYTHONPATH=\"C:/ClaudeCodeFiles/ClaudeCode/PostMule\" .venv/Scripts/python.exe -c \":*)",
+      "Bash(set PYTHONPATH=C:ClaudeCodeFilesClaudeCodePostMule)",
+      "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --tb=short -q --no-cov)",
+      "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --cov=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\postmule\" --cov-report=term-missing -q 2>&1)",
+      "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --cov=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\postmule\" --cov-report=term-missing --tb=no -v)",
+      "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --cov=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\postmule\" --cov-report=term-missing --tb=no)",
+      "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest \"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\\\\tests\" --cov=postmule --cov-report=json --tb=no -q 2>&1)",
+      "Bash(PYTHONPATH=\"C:\\\\ClaudeCodeFiles\\\\ClaudeCode\\\\PostMule\" python -m pytest tests/ --cov=postmule --cov-report=json -q)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
