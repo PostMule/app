@@ -7,6 +7,7 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
+from postmule import cli as cli_module
 from postmule.cli import _build_config_yaml, _find_example_config, main
 
 
@@ -48,14 +49,14 @@ class TestMainCommandConfigError:
 
 class TestMainCommandDryRun:
     def test_dry_run_flag_printed(self, runner, config_file, tmp_path):
-        enc_path = tmp_path / "credentials.enc"
-        with patch("postmule.cli._run_full_pipeline") as mock_pipeline:
+        tmp_path / "credentials.enc"
+        with patch("postmule.cli._run_full_pipeline"):
             result = runner.invoke(main, ["--config", str(config_file), "--dry-run"])
         # Either ran or printed dry run notice
         assert result.exit_code in (0, 1)
 
     def test_dry_run_message_shown(self, runner, config_file, tmp_path):
-        with patch("postmule.cli._run_full_pipeline") as mock_run:
+        with patch("postmule.cli._run_full_pipeline"):
             result = runner.invoke(main, ["--config", str(config_file), "--dry-run"])
         # Should print dry run notice
         assert "[DRY RUN]" in result.output
@@ -91,7 +92,11 @@ class TestRetroactiveCommand:
 
 
 class TestLogsCommand:
-    def test_logs_no_file_prints_message(self, runner):
+    def test_logs_no_file_prints_message(self, runner, tmp_path, monkeypatch):
+        # Isolate from any log file a live install may have created for today.
+        monkeypatch.setattr(
+            cli_module, "_log_candidates", lambda today: [tmp_path / "verbose" / f"{today}.log"]
+        )
         result = runner.invoke(main, ["logs"])
         assert result.exit_code == 0
         assert "No verbose log found" in result.output
@@ -133,7 +138,8 @@ class TestUninstallCommand:
         with patch("postmule.cli.Path") as mock_path_cls:
             mock_script = MagicMock()
             mock_script.exists.return_value = True
-            mock_path_cls.return_value.__truediv__.return_value.__truediv__.return_value = mock_script
+            chained = mock_path_cls.return_value.__truediv__.return_value
+            chained.__truediv__.return_value = mock_script
             # Patch the actual Path used inside uninstall to return a real path
         with patch("subprocess.run") as mock_run:
             result = runner.invoke(main, ["uninstall", "--install-dir", str(tmp_path)], input="n\n")
@@ -147,15 +153,17 @@ class TestUninstallCommand:
             instance = MagicMock()
             instance.__truediv__ = MagicMock(return_value=mock_script)
             mock_path_cls.return_value = instance
-            result = runner.invoke(main, ["uninstall", "--install-dir", str(tmp_path)], input="YES\n")
+            result = runner.invoke(
+                main, ["uninstall", "--install-dir", str(tmp_path)], input="YES\n"
+            )
         # Either exits with error or prints not found
         assert result.exit_code != 0 or "not found" in result.output.lower()
 
     def test_confirmed_calls_powershell(self, runner, tmp_path):
         script = tmp_path / "uninstall.ps1"
         script.write_text("# fake")
-        with patch("subprocess.run", return_value=MagicMock(returncode=0)) as mock_run:
-            with patch("postmule.cli.Path", wraps=Path) as mock_path:
+        with patch("subprocess.run", return_value=MagicMock(returncode=0)):
+            with patch("postmule.cli.Path", wraps=Path):
                 # Patch __file__ path resolution to point at our tmp script
                 with patch("postmule.cli.__file__", str(tmp_path / "cli.py")):
                     result = runner.invoke(
@@ -170,7 +178,7 @@ class TestUninstallCommand:
                 script = tmp_path / "installer" / "uninstall.ps1"
                 script.parent.mkdir(parents=True, exist_ok=True)
                 script.write_text("# fake")
-                result = runner.invoke(
+                runner.invoke(
                     main,
                     ["uninstall", "--install-dir", str(tmp_path), "--keep-data"],
                     input="YES\n",

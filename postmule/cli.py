@@ -80,7 +80,9 @@ def _setup(config_path: Path, dry_run: bool = False):
 
 @click.group(invoke_without_command=True)
 @click.option("--dry-run", is_flag=True, help="Simulate all actions without writing anything.")
-@click.option("--agent", default=None, help="Run a single agent: email | ocr | classify | summarize")
+@click.option(
+    "--agent", default=None, help="Run a single agent: email | ocr | classify | summarize"
+)
 @click.option("--config", default=str(DEFAULT_CONFIG), help="Path to config.yaml")
 @click.pass_context
 def main(ctx: click.Context, dry_run: bool, agent: str | None, config: str) -> None:
@@ -104,7 +106,7 @@ def main(ctx: click.Context, dry_run: bool, agent: str | None, config: str) -> N
 
 
 def _run_full_pipeline(cfg) -> None:
-    from postmule.core.credentials import CredentialsError, load_credentials
+    from postmule.core.credentials import load_credentials
     from postmule.pipeline import run_daily_pipeline
 
     install_dir = Path(cfg.get("app", "install_dir", default="."))
@@ -115,13 +117,16 @@ def _run_full_pipeline(cfg) -> None:
         credentials = load_credentials(enc_path)
     except CredentialsError:
         credentials = {}
-        click.echo("[WARNING] credentials.enc not found — smtp/finance/llm credentials unavailable.")
+        click.echo(
+            "[WARNING] credentials.enc not found — smtp/finance/llm credentials unavailable."
+        )
 
     click.echo("PostMule daily run starting...")
     stats = run_daily_pipeline(cfg, credentials, data_dir, dry_run=cfg.dry_run)
     status = stats.get("status", "unknown")
     pdfs = stats.get("pdfs_processed", 0)
-    click.echo(f"Done. Status: {status} | PDFs processed: {pdfs} | Errors: {len(stats.get('errors', []))}")
+    errors = len(stats.get("errors", []))
+    click.echo(f"Done. Status: {status} | PDFs processed: {pdfs} | Errors: {errors}")
 
 
 def _run_single_agent(agent: str, cfg) -> None:
@@ -158,7 +163,7 @@ def retroactive(config: str) -> None:
 @click.option("--enc-file", default=str(DEFAULT_ENC), help="Output path for credentials.enc")
 def encrypt_credentials(yaml_file: str, enc_file: str) -> None:
     """Encrypt credentials.yaml into credentials.enc."""
-    from postmule.core.credentials import CredentialsError, encrypt_credentials as _enc
+    from postmule.core.credentials import encrypt_credentials as _enc
 
     yaml_path = Path(yaml_file)
     enc_path = Path(enc_file)
@@ -176,7 +181,7 @@ def encrypt_credentials(yaml_file: str, enc_file: str) -> None:
 @main.command("set-master-password")
 def set_master_password() -> None:
     """Store the master password in the system keyring."""
-    from postmule.core.credentials import CredentialsError, save_master_password as _save
+    from postmule.core.credentials import save_master_password as _save
 
     password = click.prompt("New master password", hide_input=True, confirmation_prompt=True)
     try:
@@ -198,6 +203,14 @@ def update_config(config: str) -> None:
     click.launch(str(path))
 
 
+def _log_candidates(today: str) -> list[Path]:
+    """Return candidate verbose log paths for the given date, relative-cwd first."""
+    return [
+        Path("logs") / "verbose" / f"{today}.log",
+        Path("C:/ProgramData/PostMule/logs/verbose") / f"{today}.log",
+    ]
+
+
 @main.command()
 @click.option("--lines", default=50, help="Number of lines to show.")
 def logs(lines: int) -> None:
@@ -205,11 +218,7 @@ def logs(lines: int) -> None:
     import datetime
     today = datetime.date.today().isoformat()
     # Try to find the log file relative to install_dir or cwd
-    candidates = [
-        Path("logs") / "verbose" / f"{today}.log",
-        Path("C:/ProgramData/PostMule/logs/verbose") / f"{today}.log",
-    ]
-    for path in candidates:
+    for path in _log_candidates(today):
         if path.exists():
             with path.open("r", encoding="utf-8") as f:
                 all_lines = f.readlines()
@@ -224,7 +233,7 @@ def logs(lines: int) -> None:
 def backup(config: str, dry_run: bool) -> None:
     """Create an on-demand backup and upload it to cloud storage."""
     from postmule.agents.backup import run_backup
-    from postmule.core.credentials import CredentialsError, load_credentials
+    from postmule.core.credentials import load_credentials
 
     cfg = _setup(Path(config))
     install_dir = Path(cfg.get("app", "install_dir", default="."))
@@ -245,7 +254,8 @@ def backup(config: str, dry_run: bool) -> None:
 
     if result["status"] == "ok":
         size_kb = result["bytes_uploaded"] / 1024
-        click.echo(f"Backup complete: {result['backup_name']} ({size_kb:.1f} KB, {len(result['files_included'])} files)")
+        n_files = len(result["files_included"])
+        click.echo(f"Backup complete: {result['backup_name']} ({size_kb:.1f} KB, {n_files} files)")
         if result["pruned_count"]:
             click.echo(f"Pruned {result['pruned_count']} old backup(s).")
     else:
@@ -255,13 +265,19 @@ def backup(config: str, dry_run: bool) -> None:
 
 @main.command("restore")
 @click.option("--config", default=str(DEFAULT_CONFIG), help="Path to config.yaml")
-@click.option("--from-backup", "backup_name", default=None, help="Exact backup filename or 'latest'.")
-@click.option("--list", "list_only", is_flag=True, help="List available backups without restoring.")
-@click.option("--dry-run", is_flag=True, help="Show what would be restored without extracting files.")
+@click.option(
+    "--from-backup", "backup_name", default=None, help="Exact backup filename or 'latest'."
+)
+@click.option(
+    "--list", "list_only", is_flag=True, help="List available backups without restoring."
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be restored without extracting files."
+)
 def restore(config: str, backup_name: str | None, list_only: bool, dry_run: bool) -> None:
     """Restore PostMule data from a cloud backup."""
     from postmule.agents.backup import list_backups, run_restore
-    from postmule.core.credentials import CredentialsError, load_credentials
+    from postmule.core.credentials import load_credentials
 
     cfg = _setup(Path(config))
     install_dir = Path(cfg.get("app", "install_dir", default="."))
@@ -287,7 +303,10 @@ def restore(config: str, backup_name: str | None, list_only: bool, dry_run: bool
         return
 
     if not backup_name:
-        click.echo("Specify --from-backup <name> or 'latest', or use --list to see available backups.", err=True)
+        click.echo(
+            "Specify --from-backup <name> or 'latest', or use --list to see available backups.",
+            err=True,
+        )
         sys.exit(1)
 
     if dry_run:
@@ -300,14 +319,17 @@ def restore(config: str, backup_name: str | None, list_only: bool, dry_run: bool
     result = run_restore(cfg, credentials, backup_name, data_dir, dry_run=dry_run)
 
     if result["status"] == "ok":
-        click.echo(f"Restore complete: {result['backup_name']} ({len(result['files_restored'])} files restored)")
+        n_files = len(result["files_restored"])
+        click.echo(f"Restore complete: {result['backup_name']} ({n_files} files restored)")
     else:
         click.echo(f"Restore failed: {result['error']}", err=True)
         sys.exit(1)
 
 
 @main.command("uninstall")
-@click.option("--install-dir", default="C:\\ProgramData\\PostMule", help="Installation directory to remove.")
+@click.option(
+    "--install-dir", default="C:\\ProgramData\\PostMule", help="Installation directory to remove."
+)
 @click.option("--keep-data", is_flag=True, help="Keep JSON data files and credentials.enc.")
 def uninstall(install_dir: str, keep_data: bool) -> None:
     """Remove PostMule, the scheduled task, and the PATH entry."""
@@ -339,11 +361,19 @@ def uninstall(install_dir: str, keep_data: bool) -> None:
 
 
 @main.command("configure")
-@click.option("--data-dir", required=True, help="PostMule data directory (config, credentials, logs).")
-@click.option("--credentials-json", default="", help="Path to downloaded Google OAuth credentials.json.")
+@click.option(
+    "--data-dir", required=True, help="PostMule data directory (config, credentials, logs)."
+)
+@click.option(
+    "--credentials-json", default="", help="Path to downloaded Google OAuth credentials.json."
+)
 @click.option("--gemini-key", default="", help="Gemini API key.")
 @click.option("--alert-email", required=True, help="Email address for alerts and daily summary.")
-@click.option("--vpm-provider", default="vpm", help="Virtual mailbox provider slug (vpm | earth_class | traveling_mailbox | postscan).")
+@click.option(
+    "--vpm-provider",
+    default="vpm",
+    help="Virtual mailbox provider slug (vpm | earth_class | traveling_mailbox | postscan).",
+)
 @click.option("--vpm-sender", default="", help="VPM scan notification sender email.")
 @click.option("--vpm-prefix", default="", help="VPM scan notification subject prefix.")
 @click.option("--run-time", default="02:00", help="Daily run time (HH:MM, 24-hour).")
@@ -361,7 +391,6 @@ def configure(
     import secrets
     import shutil
 
-    from postmule.core.credentials import CredentialsError
     from postmule.core.credentials import encrypt_credentials as _enc
     from postmule.core.credentials import save_master_password as _save_pw
 
@@ -471,13 +500,21 @@ def _do_install_task(run_time: str, work_dir: str) -> None:
         capture_output=True, text=True,
     )
     if result.returncode != 0:
-        click.echo(f"[WARNING] Task Scheduler registration failed: {result.stderr.strip()}", err=True)
+        click.echo(
+            f"[WARNING] Task Scheduler registration failed: {result.stderr.strip()}", err=True
+        )
     else:
         click.echo(f"Task '{task_name}' registered — runs daily at {run_time}.")
 
 
 @main.command("install-task")
-@click.option("--time", "run_time", default="02:00", show_default=True, help="Daily run time (HH:MM, 24-hour).")
+@click.option(
+    "--time",
+    "run_time",
+    default="02:00",
+    show_default=True,
+    help="Daily run time (HH:MM, 24-hour).",
+)
 @click.option("--work-dir", default=None, help="Working directory for the scheduled task.")
 def install_task(run_time: str, work_dir: str | None) -> None:
     """Register PostMule as a Windows Task Scheduler daily task."""
@@ -512,6 +549,7 @@ def serve(config: str, port: int, host: str, no_browser: bool) -> None:
     """Start the PostMule web dashboard."""
     import threading
     import webbrowser
+
     from postmule.web.app import create_app
 
     cfg_path = Path(config)
