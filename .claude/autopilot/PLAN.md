@@ -1,9 +1,11 @@
-# PostMule Autopilot — Deployment Harness Design (v3)
+# PostMule Autopilot — Deployment Harness Design (v4)
 
-> Status: DRAFT v3 — full specification, awaiting owner approval (session 2026-06-10).
+> Status: DRAFT v4 — full specification, awaiting owner approval (session 2026-06-10).
 > v1: charter-level sketch. v2: phase state machine, gates, recovery, schemas, release
 > verification. v3: §5.10 (novel-failure ratchet) + §12 (20 normative amendments from an
-> independent adversarial review). Where §12 conflicts with earlier sections, §12 wins.
+> independent adversarial review). v4: §13 (owner review round 2 — private ops repo,
+> compact-resilience, full SDLC quality gates, model policy, verified auto-fix protocol).
+> Later sections override earlier ones where they conflict.
 
 ---
 
@@ -333,3 +335,109 @@ earlier sections where they conflict.
 author, so it shares blind spots a human security reviewer might not. Residual unknowns
 are covered by §5.10's containment guarantee, the supervised acceptance runs in §10, and
 the ratchet rule — completeness is asymptotic, but the cost of incompleteness is capped.
+
+---
+
+## 13. v4 amendments — owner review round 2 (normative)
+
+### 13.1 Private ops repo — work queue is never public
+
+The autopilot must never take work from, or publish operational detail to, anything the
+public can see or write to. Architecture:
+
+- **New private repo `PostMule/ops`** (created at chunk-1 start, owner account). It holds:
+  the entire `.claude/autopilot/` content (PLAN, AUTOPILOT charter, STATE.json, label
+  allowlist), all autopilot-filed issues (work proposals, status, release-approval
+  requests, paused/P0 alerts), the heartbeat file, and the dead-man's-switch GitHub
+  Action (§12.7 moves here — it watches the heartbeat, not public commits).
+- **Public repo `PostMule/app`** keeps code, CI, community issues. The autopilot treats
+  public issues as *read-only triage input*: it may file a mirrored proposal in `ops`
+  for owner review, but only tasks in the ops-repo queue are ever executed. (§12.2's
+  data-not-instructions rule still applies on top — defense in depth.)
+- The harness clones `ops` beside the code repo; the wrapper syncs both; commits of
+  state/telemetry go to `ops`, commits of code go to `app`.
+- **Migration note:** PLAN.md v1–v4 lived in the public repo and contains local paths —
+  mild info disclosure (username already public via GitHub). Chunk 1 step 0: move
+  `.claude/autopilot/` to `ops`, scrub it from `app` history-forward (no force-push;
+  just delete going forward and accept the historical exposure, which is minor).
+
+### 13.2 Context-bloat / auto-compact resilience
+
+A 90-minute headless run can hit auto-compaction; a compacted agent degrades. The design
+treats every run's *context* as disposable and every run's *output* as gate-protected:
+
+- **Truth lives on disk, never in conversation memory:** queue state, attempt counters,
+  HANDOFF, and incremental commits are externalized continuously, so nothing of value
+  exists only in context when compaction (or a crash) hits.
+- **Charter rule:** commit working increments at least every ~30 minutes of work; if the
+  agent detects compaction has occurred or context is degraded, it must wrap up —
+  finish/commit the current increment, update HANDOFF, exit — and let the next run
+  continue fresh rather than pushing on with degraded context.
+- **Quality is enforced outside the context window:** tests-green-before-commit,
+  postflight checks, and gate scripts judge the output identically whether the agent's
+  context was pristine or compacted. A degraded agent can waste one chunk; it cannot
+  advance a phase or ship.
+
+### 13.3 Full SDLC quality gates + continuous refactoring
+
+- **Deterministic quality bars (zero tokens), added to preflight and gate-1/gate-3:**
+  `ruff check` (lint), `mypy` (types), `bandit -r postmule` (security static analysis),
+  `pip-audit` (dependency CVEs), coverage ≥80%. Wired as pre-commit hooks too, so the
+  agent cannot commit below the bar. This moves whole review classes from LLM to script.
+- **Specialized LLM reviews at phase boundaries (scheduled, not ad hoc):**
+  per-issue code review (Sonnet) after each completed queue task; an operational-
+  readiness review before gate-2 (logging, error messages, recovery paths of PostMule
+  itself); a dedicated security review (top model, §13.4) before gate-3; a release-
+  readiness review folded into the owner-approval issue.
+- **"Until perfect" is replaced by measurable bars + scheduled improvement** (owner
+  pushback noted and answered): perfection is asymptotic and token-unbounded, so the
+  system pursues defined bars (all gates green, zero open bugs, quality tools clean) plus
+  a recurring P6 refactor cycle — monthly simplification/architecture pass that files
+  and then executes improvement tasks — with a diminishing-returns stop rule: a refactor
+  cycle that produces no gate-relevant improvement ends the cycle, not the bar.
+
+### 13.4 Model policy (replaces per-session judgment)
+
+| Work | Engine | Rationale |
+|---|---|---|
+| Gates, recovery, watchdog, release, quality bars | PowerShell/CI — zero tokens | Deterministic; LLM adds nothing |
+| Routine chunks, doctor runs, per-issue code review | Sonnet | Well-specified work; cheapest capable engine |
+| Phase-boundary security review; red team of the implemented harness (pre-unattended, build chunk 4); release-readiness review | **Fable 5 / best available** | Rare, one-shot, high-leverage — exactly where the strongest model pays for itself |
+| Design/synthesis sessions with the owner | Fable 5 | Already the practice |
+
+The v2 red team ran on Sonnet (found 20 real issues — productive, not wasted), but the
+**final adversarial pass before the first unattended run is mandated at top model**, on
+the implemented scripts and charter, not the prose spec. Same-family caveat from §12
+stands; the strongest available mitigations are charter variation, the owner reading
+approval issues, and deterministic gates that don't care what any model believes.
+
+### 13.5 Script-maximization ratchet (LLM-minimization as a standing rule)
+
+Mirror of §5.10's failure ratchet, applied to work: **any action the agent performs the
+same way twice must be converted into a script, test, hook, or gate check in the same
+run** (and committed). The charter forbids the LLM from doing anything a script already
+does (running checks manually, formatting, changelog assembly, version bumps once
+scripted). Direction of travel is one-way: token spend per phase falls as the harness
+absorbs repeated work into code. RUNS.jsonl makes this auditable — recurring task
+patterns with no corresponding script are a charter violation.
+
+### 13.6 Verified auto-fix protocol (answers "deploy at ≥95% LLM confidence")
+
+Owner proposal: let the LLM auto-deploy a fix when it self-reports ≥95% confidence.
+**Amended, not adopted as stated** — LLM self-reported confidence is poorly calibrated
+(a stated "95%" is rhetoric, not a probability; this conversation itself demonstrated
+that). The system keeps the intent — autonomous fix deployment — but gates it on
+*demonstrated* correctness instead of *stated* confidence:
+
+1. **Reproduce:** write a failing test that captures the observed failure. If the
+   failure cannot be reproduced deterministically → file issue, pause that task; never
+   fix by guesswork.
+2. **Fix** until the reproduction test passes.
+3. **Verify:** full suite + quality bars green.
+4. **Deploy:** commit + push automatically — no human in the loop, exactly as the owner
+   wants — because the evidence is objective.
+
+This is strictly stronger than a confidence threshold: a verified-behavior gate is the
+working equivalent of ">95% confidence" that doesn't depend on the model grading itself.
+The regression test also persists, so the same failure can never silently return — each
+auto-fix permanently hardens the suite (the ratchet again).
