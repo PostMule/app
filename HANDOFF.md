@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-04-05 (6): Built #102 chunk 2 — connection testers. Added `POST /setup/api/test-gmail` (IMAP4_SSL login to imap.gmail.com:993) and `POST /setup/api/test-gemini` (via `_probe_gemini_key()` helper, patchable for tests). Steps 2 and 3 now intercept "Next" with inline JS, POST to the tester, show green/red status, and auto-advance on success. 13 new tests (1090 total passing). Pushed commit `3adc680`.
+Session 2026-06-10: Designed the autopilot deployment harness — `.claude/autopilot/PLAN.md` v1→v4.1 (phase state machine, gates, recovery, red-team amendments, private ops repo, model policy). Status: draft, owner has since approved proceeding. Session ended prematurely (unplanned OS restart) after final commit `4b26219` — all work was pushed; only the conversation was lost.
 
 ---
 
@@ -16,7 +16,9 @@ Session 2026-04-05 (6): Built #102 chunk 2 — connection testers. Added `POST /
 > Check `gh issue list --repo PostMule/app` for current state before starting.
 > Do not suggest or offer to work on blocked or deferred issues — only note they exist.
 
-**Recommended:** Continue #102 chunk 3 — polish and close. Remaining work: (a) test the wizard end-to-end against a real Gmail + Gemini account to confirm no edge cases, (b) close #101 (setup.ps1 Gemini regex bug — superseded by the wizard), (c) close #102 if wizard is feature-complete. Also check if step 4 (master password) needs a tester or if it's fine as-is (no external service to test).
+**Recommended:** Deploy the autopilot harness per `.claude/autopilot/PLAN.md` §10 build order (owner approved 2026-06-10). After P0, the first P1 task is the Fable-tier MVP/overengineering critical review of PostMule itself.
+
+**Previously recommended (now queued for the autopilot):** Continue #102 chunk 3 — polish and close. Remaining work: (a) test the wizard end-to-end against a real Gmail + Gemini account to confirm no edge cases, (b) close #101 (setup.ps1 Gemini regex bug — superseded by the wizard), (c) close #102 if wizard is feature-complete. Also check if step 4 (master password) needs a tester or if it's fine as-is (no external service to test).
 
 **After #102:** Build #104 — Expert Directory. Run the bootstrapping session using `.claude/skills/Expert-framework-prompt.md`. Start with `frontend_developer` and `ux_designer`. Produces `.claude/experts/EXPERT_DIRECTORY.md`.
 
