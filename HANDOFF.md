@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-11 (autopilot): queue had no takeable task (only `p1-await-mvp-scope`, blocked on the owner-attended #105 review), so ran `gate-1-code-green.ps1`. It failed on every check: coverage 71.43% (need 80%), ruff 374 errors, mypy 45 errors in 16 files, bandit 32 findings (4 High), pip-audit 20 known vulns across 8 packages, an issue-hygiene check on 8 open issues missing allowlisted labels, and an apparent false-positive in the CI-green check (filters all 10 recent runs instead of just HEAD's). Seeded 7 new phase-1 queue tasks (`p1-gate-coverage`, `p1-gate-ruff`, `p1-gate-mypy`, `p1-gate-bandit`, `p1-gate-pip-audit`, `p1-gate-ci-check`, `p1-gate-issue-labels`) with details in ops `STATE.json`. No code changes this run.
+Session 2026-06-11 (autopilot): no takeable task. Phase is 1 and `approved/mvp-scope` does not exist on origin, so per PLAN §14.16 the only phase-1 task allowed without that tag is `p1-fix-103`, which is already `done`. The 7 gate-1 tasks seeded last run (`p1-gate-coverage`, `p1-gate-ruff`, `p1-gate-mypy`, `p1-gate-bandit`, `p1-gate-pip-audit`, `p1-gate-ci-check`, `p1-gate-issue-labels`) and `p1-await-mvp-scope` remain pending but are not pickable until the tag lands. No recovery branches found. No code or STATE.json changes this run.
 
 ---
 
