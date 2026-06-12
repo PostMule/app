@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-11 (autopilot): no takeable task. Phase is 1 and `approved/mvp-scope` does not exist on origin, so per PLAN §14.16 the only phase-1 task allowed without that tag is `p1-fix-103`, which is already `done`. The 7 gate-1 tasks seeded last run (`p1-gate-coverage`, `p1-gate-ruff`, `p1-gate-mypy`, `p1-gate-bandit`, `p1-gate-pip-audit`, `p1-gate-ci-check`, `p1-gate-issue-labels`) and `p1-await-mvp-scope` remain pending but are not pickable until the tag lands. No recovery branches found. No code or STATE.json changes this run.
+Session 2026-06-11 (autopilot, second run): re-checked — same result as the prior run. `approved/mvp-scope` still does not exist on origin, so per PLAN §14.16 the only phase-1 task allowed is `p1-fix-103`, already `done`. The 7 gate-1 tasks and `p1-await-mvp-scope` remain pending but not pickable. No recovery branches on origin. No code or STATE.json changes this run.
 
 ---
 
