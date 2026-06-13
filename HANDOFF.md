@@ -16,7 +16,9 @@ Session 2026-06-12 (autopilot, fourteenth run): re-checked — same result as th
 > Check `gh issue list --repo PostMule/app` for current state before starting.
 > Do not suggest or offer to work on blocked or deferred issues — only note they exist.
 
-**Recommended:** Run the owner-attended MVP scoping review (#105, spec: ops PLAN §14.16) in a Fable session. It gates the entire P1 backlog; approve its verdict table with the `approved/mvp-scope` tag. The autopilot handles everything else on schedule — owner contract is reading the pinned "Autopilot Dashboard" issue in PostMule/ops weekly.
+**Cross-platform decision (2026-06-12):** owner committed to making PostMule run on Windows and macOS, and to rewriting the harness in Python per the template. Build plan: ops `PLAN.md` §16 (two tracks: A = PostMule itself OS-agnostic, scoped by #105; B = Python harness in ops `harness/`). Track B step 1 done: `harness/` package with `config.py` + `state.py` + 16 passing tests (ruff/mypy clean). PowerShell harness in ops `scripts/` stays in production until the Python one passes gate-0 on a second OS.
+
+**Recommended next:** Run the owner-attended MVP scoping review (#105, spec: ops PLAN §14.16) in a Fable session — now expanded to decide the OS-agnostic boundary per feature plus the macOS install/validation approach. It gates the P1 backlog and feeds the harness gate definitions; approve with the `approved/mvp-scope` tag.
 
 **Previously recommended (now queued for the autopilot):** Continue #102 chunk 3 — polish and close. Remaining work: (a) test the wizard end-to-end against a real Gmail + Gemini account to confirm no edge cases, (b) close #101 (setup.ps1 Gemini regex bug — superseded by the wizard), (c) close #102 if wizard is feature-complete. Also check if step 4 (master password) needs a tester or if it's fine as-is (no external service to test).
 
