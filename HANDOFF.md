@@ -7,9 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-13 (autopilot, sixteenth run): `approved/mvp-scope` still does not exist on origin, issue #105 still open with no labels, so per PLAN §14.16 the only phase-1 task allowed is `p1-fix-103`, already `done`. The 7 gate-1 tasks and `p1-await-mvp-scope` remain pending but not pickable. No recovery branches on origin, no new tags.
-
-Found and committed `reviews/mvp-review.md` in ops (was written 2026-06-13 00:58, uncommitted) — this is the owner-attended MVP scope review verdict for #105 that PLAN §14.16 gates the P1 backlog on, run on Opus 4.8 per the 2026-06-13 decision. It is now pushed to ops (commit 4a3b4a9). **Owner action needed:** review the verdict table in `PostMule-ops/reviews/mvp-review.md`, and if approved, tag `approved/mvp-scope` on the app repo — a gate script then rewrites the P1 queue per section 3 of that file (9 new tasks). The previous attempted run (00:00-00:01) errored on a session-limit message before producing any output, unrelated to this file.
+Session 2026-06-13 (autopilot, seventeenth run): `approved/mvp-scope` still does not exist on origin, issue #105 still open with no labels, so per PLAN §14.16 the only phase-1 task allowed is `p1-fix-103`, already `done`. The 7 gate-1 tasks and `p1-await-mvp-scope` remain pending but not pickable. No recovery branches on origin, no new tags. No change since the sixteenth run — the MVP review verdict (`PostMule-ops/reviews/mvp-review.md`, commit 4a3b4a9) is still awaiting owner review and the `approved/mvp-scope` tag.
 
 ---
 
