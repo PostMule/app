@@ -79,6 +79,28 @@ itself doesn't otherwise use. See #103.
 
 ---
 
+## MVP Scope (v0.1.0)
+
+**`entity_discovery` is MVP-core.**
+The 2026-04-04 architecture council marked this CONFIRM; the #105 MVP scope review (2026-06-14) raises it to KEEP. Entity/account matching is the mechanism behind filing a bill into the correct folder, which is part of the v0.1.0 success scenario (one fixture email fetched, OCR'd, classified, filed, recorded, and visible in the dashboard, in a dry run). See #105.
+
+**`backup` is MVP-core and gains a dedicated test; `retroactive` is post-release.**
+A system-of-record for financial documents ships with a working snapshot, so `backup` is KEEP with a new test covering snapshot write and restore under the platform path layer. `retroactive` is a one-time migration tool for the 130 CONFLICT PDFs, run once by the owner and off the v0.1.0 E2E path; the code stays but is out of scope and out of the gate. See #105.
+
+**The autopilot Python harness rewrite is deferred past v0.1.0; the PowerShell harness is frozen.**
+The dependency-free Python core (`harness/` package, `config.py` + `state.py`, 55 tests) is kept as already-built work, but Track B steps 2-4 do not continue until v0.1.0 ships. The existing PowerShell harness in ops `scripts/` takes no new features through v0.1.0. See #105, ops PLAN §16.
+
+**14 untested providers are stubbed, not cut.**
+imap, outlook_365, outlook_com, proton, dropbox, onedrive, s3, airtable, excel_online, anthropic, openai, traveling_mailbox, postscan, and earth_class keep `base.py` and a registry entry that raises a clear "not implemented in this build" error. Per the soft-delete invariant, stubbing removes only the body; `test_provider_completeness.py` is updated in the same commit so it does not import deleted bodies. See #105.
+
+**`ollama` is KEEP+test; Gemini remains the default until it is validated on real mail.**
+The 2026-04-04 council grouped `ollama` with the untested LLM providers for STUB. The #105 review overturns this: the provider is already built against the same JSON-schema prompt as Gemini, bill classification is bounded structured extraction that suits a local model, and a local/private LLM path is the direct expression of the project's "user owns their financial documents" value proposition, which the council applied to storage and email but not the LLM. `ollama` gets a dedicated test against the committed fixtures (needs Ollama running with a pulled model); Gemini stays the validated default until the local path is proven on real mail, post-release. See #105.
+
+**A runtime/operational product premortem runs as an owner-attended pre-P1 gate.**
+The 2026-04-04 council never examined the cloud-LLM dependency, token cost, or pipeline runtime failure modes, and is 69 days old relative to the cross-platform and MVP-scope decisions. A focused premortem using the `council-this` skill runs before the P1 grind, scoped to runtime/operational failure modes (not a re-run of the architecture council). Its output is a short risk list mirroring the harness failure catalog (ops PLAN §18). See #105.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**
