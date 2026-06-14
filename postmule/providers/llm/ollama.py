@@ -35,7 +35,7 @@ You are a mail classification assistant. Given the OCR text of a physical mail i
 classify it and extract key data.
 
 Respond with ONLY a valid JSON object — no markdown, no explanation. Use this exact schema:
-{
+{{
   "category": "<Bill|Notice|ForwardToMe|Personal|Junk|NeedsReview>",
   "confidence": <0.0-1.0>,
   "sender": "<company or person name, or null>",
@@ -44,9 +44,9 @@ Respond with ONLY a valid JSON object — no markdown, no explanation. Use this 
   "due_date": "<YYYY-MM-DD or null>",
   "account_number": "<last 4 digits only, or null>",
   "summary": "<one sentence description>",
-  "statement_date": "<YYYY-MM-DD or null — the billing cycle/statement date, if different from due_date>",
+  "statement_date": "<YYYY-MM-DD or null — billing cycle date if different from due_date>",
   "ach_descriptor": "<ACH/bank descriptor string as it would appear on a bank statement, or null>"
-}
+}}
 
 Category definitions:
 - Bill: invoice, statement with amount due, payment demand
@@ -197,7 +197,9 @@ class OllamaProvider:
             data = resp.json()
             raw = data["message"]["content"]
             # Ollama doesn't report token counts in /api/chat by default
-            tokens_used = data.get("eval_count", estimated_tokens) + data.get("prompt_eval_count", 0)
+            tokens_used = data.get("eval_count", estimated_tokens) + data.get(
+                "prompt_eval_count", 0
+            )
         except Exception as exc:
             log.error(f"Ollama API call failed: {exc}")
             raise RuntimeError(
