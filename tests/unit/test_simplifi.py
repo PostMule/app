@@ -1,13 +1,13 @@
 """Unit tests for postmule.providers.finance.simplifi."""
 
+import sys
 from datetime import date, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from postmule.providers.finance.simplifi import (
     BankTransaction,
-    BillMatchResult,
     SimplifiProvider,
     match_bills_to_transactions,
 )
@@ -26,6 +26,80 @@ class TestSimplifiGetRecentTransactions:
         with pytest.raises(Exception):
             # Will raise either ImportError (playwright not installed) or RuntimeError
             provider.get_recent_transactions(days=1)
+
+    def test_raises_runtime_error_when_playwright_import_fails(self):
+        provider = SimplifiProvider("user", "pass")
+        with patch.dict(sys.modules, {"playwright": None, "playwright.sync_api": None}):
+            with pytest.raises(RuntimeError, match="playwright is not installed"):
+                provider.get_recent_transactions(days=1)
+
+    def test_scrapes_via_mocked_playwright(self):
+        provider = SimplifiProvider("user", "pass")
+        with patch.object(provider, "_scrape_transactions", return_value=["txn"]) as scrape:
+            mock_page = MagicMock()
+            mock_browser = MagicMock()
+            mock_browser.new_page.return_value = mock_page
+            mock_chromium = MagicMock()
+            mock_chromium.launch.return_value = mock_browser
+            mock_pw_instance = MagicMock(chromium=mock_chromium)
+            mock_sync_playwright = MagicMock()
+            mock_sync_playwright.return_value.__enter__.return_value = mock_pw_instance
+
+            fake_sync_api = MagicMock(sync_playwright=mock_sync_playwright)
+            with patch.dict(sys.modules, {"playwright.sync_api": fake_sync_api}):
+                result = provider.get_recent_transactions(days=7)
+
+        scrape.assert_called_once_with(mock_page, 7)
+        mock_browser.close.assert_called_once()
+        assert result == ["txn"]
+
+
+class TestSimplifiScrapeTransactions:
+    def _make_row(self, date_str, amount_str="$94.00", payee="AT&T"):
+        row = MagicMock()
+        date_el = MagicMock()
+        date_el.inner_text.return_value = date_str
+        amount_el = MagicMock()
+        amount_el.inner_text.return_value = amount_str
+        payee_el = MagicMock()
+        payee_el.inner_text.return_value = payee
+        row.query_selector.side_effect = lambda sel: {
+            "[data-testid='transaction-date']": date_el,
+            "[data-testid='transaction-amount']": amount_el,
+            "[data-testid='transaction-payee']": payee_el,
+        }[sel]
+        return row
+
+    def test_scrapes_rows_within_cutoff(self):
+        provider = SimplifiProvider("user", "pass")
+        page = MagicMock()
+        recent = self._make_row(date.today().strftime("%b %d, %Y"))
+        page.query_selector_all.return_value = [recent]
+
+        transactions = provider._scrape_transactions(page, days=30)
+        assert len(transactions) == 1
+        page.goto.assert_any_call("https://app.simplifimoney.com")
+        page.fill.assert_any_call('input[type="email"]', "user")
+        page.fill.assert_any_call('input[type="password"]', "pass")
+
+    def test_skips_rows_older_than_cutoff(self):
+        provider = SimplifiProvider("user", "pass")
+        page = MagicMock()
+        old = self._make_row((date.today() - timedelta(days=60)).strftime("%b %d, %Y"))
+        page.query_selector_all.return_value = [old]
+
+        transactions = provider._scrape_transactions(page, days=30)
+        assert transactions == []
+
+    def test_skips_rows_that_fail_to_parse(self):
+        provider = SimplifiProvider("user", "pass")
+        page = MagicMock()
+        bad_row = MagicMock()
+        bad_row.query_selector.side_effect = RuntimeError("dom error")
+        page.query_selector_all.return_value = [bad_row]
+
+        transactions = provider._scrape_transactions(page, days=30)
+        assert transactions == []
 
 
 class TestSimplifiUpdateTransactionName:
@@ -200,6 +274,8 @@ class TestMatchBillsToTransactions:
         today = date.today()
         bill = self._make_bill(amount=94.00, due_date=today.isoformat())
         txn = self._make_txn(amount=-94.10, txn_date=(today + timedelta(days=1)).isoformat())
-        matches = match_bills_to_transactions([bill], [txn], amount_tolerance=0.50, date_tolerance_days=3)
+        matches = match_bills_to_transactions(
+            [bill], [txn], amount_tolerance=0.50, date_tolerance_days=3
+        )
         assert len(matches) == 1
         assert matches[0].confidence == "fuzzy_both"
