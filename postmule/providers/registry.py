@@ -84,7 +84,7 @@ PROVIDER_REGISTRY: dict[str, list[ProviderEntry]] = {
         {
             "service": "imap",
             "display_name": "Generic IMAP",
-            "status": "implemented",
+            "status": "stub",
             "auth_type": "password",
         },
     ],

@@ -1,50 +1,22 @@
 """
-Outlook.com email provider — Microsoft Graph API.
+Outlook.com email provider — stub.
 
-Covers personal Microsoft accounts (@outlook.com, @hotmail.com, @live.com).
-Uses the Microsoft Graph API with an OAuth2 access token.
-
-Config example:
-    email:
-      providers:
-        - service: outlook_com
-          enabled: true
-          role: mailbox_notifications
-          address: you@outlook.com
+Not implemented in this build (PostMule MVP v0.1.0, #105). See
+postmule/providers/email/base.py for the EmailProvider interface this
+would satisfy. The registry entry is kept; configuring service:
+outlook_com raises NotImplementedError.
 """
 
 from __future__ import annotations
 
-from postmule.providers.email._graph import GraphEmailProvider
+from typing import Any
 
 SERVICE_KEY = "outlook_com"
 DISPLAY_NAME = "outlook.com / Hotmail / Live"
 
 
-class OutlookComProvider(GraphEmailProvider):
-    """
-    Outlook.com (personal Microsoft accounts) email provider.
+class OutlookComProvider:
+    """Stub — not implemented in this build."""
 
-    Uses the Microsoft Graph API. Requires a valid OAuth2 access token —
-    obtain via the Microsoft personal account OAuth flow in the Providers setup page.
-
-    Args:
-        access_token:       Microsoft Graph API bearer token.
-        processed_category: Outlook category name applied to processed mail (default: PostMule).
-        sender_filter:      Default From address filter.
-        subject_filter:     Default Subject filter.
-    """
-
-    def __init__(
-        self,
-        access_token: str,
-        processed_category: str = "PostMule",
-        sender_filter: str = "",
-        subject_filter: str = "",
-    ) -> None:
-        super().__init__(
-            access_token=access_token,
-            processed_category=processed_category,
-            default_sender_filter=sender_filter,
-            default_subject_filter=subject_filter,
-        )
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        raise NotImplementedError(f"{DISPLAY_NAME} is not implemented in this build")

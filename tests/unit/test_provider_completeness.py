@@ -19,27 +19,16 @@ from postmule.providers.storage.base import StorageProvider
 
 # Email
 from postmule.providers.email.gmail import GmailProvider
-from postmule.providers.email.imap import ImapProvider
-from postmule.providers.email.outlook_365 import Outlook365Provider
-from postmule.providers.email.outlook_com import OutlookComProvider
-from postmule.providers.email.proton import ProtonMailProvider
 
 # Storage
-from postmule.providers.storage.dropbox import DropboxProvider
 from postmule.providers.storage.google_drive import DriveProvider
 from postmule.providers.storage.local import LocalStorageProvider
-from postmule.providers.storage.onedrive import OneDriveProvider
-from postmule.providers.storage.s3 import S3Provider
 
 # LLM
-from postmule.providers.llm.anthropic import AnthropicProvider
 from postmule.providers.llm.gemini import GeminiProvider
 from postmule.providers.llm.ollama import OllamaProvider
-from postmule.providers.llm.openai import OpenAIProvider
 
 # Spreadsheet
-from postmule.providers.spreadsheet.airtable import AirtableProvider
-from postmule.providers.spreadsheet.excel_online import ExcelOnlineProvider
 from postmule.providers.spreadsheet.google_sheets import SheetsProvider
 from postmule.providers.spreadsheet.none import NoneSpreadsheetProvider
 from postmule.providers.spreadsheet.sqlite import SqliteSpreadsheetProvider
@@ -68,10 +57,6 @@ def _assert_complete(concrete_cls, protocol) -> None:
 
 EMAIL_PROVIDERS = [
     GmailProvider,
-    ImapProvider,
-    Outlook365Provider,
-    OutlookComProvider,
-    ProtonMailProvider,
 ]
 
 
@@ -87,10 +72,7 @@ class TestEmailProviderCompleteness:
 
 STORAGE_PROVIDERS = [
     DriveProvider,
-    DropboxProvider,
     LocalStorageProvider,
-    OneDriveProvider,
-    S3Provider,
 ]
 
 
@@ -105,10 +87,8 @@ class TestStorageProviderCompleteness:
 # ---------------------------------------------------------------------------
 
 LLM_PROVIDERS = [
-    AnthropicProvider,
     GeminiProvider,
     OllamaProvider,
-    OpenAIProvider,
 ]
 
 
@@ -123,8 +103,6 @@ class TestLLMProviderCompleteness:
 # ---------------------------------------------------------------------------
 
 SPREADSHEET_PROVIDERS = [
-    AirtableProvider,
-    ExcelOnlineProvider,
     NoneSpreadsheetProvider,
     SheetsProvider,
     SqliteSpreadsheetProvider,
