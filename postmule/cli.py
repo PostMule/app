@@ -29,6 +29,7 @@ import yaml
 from postmule.core.config import ConfigError, load_config
 from postmule.core.credentials import CredentialsError
 from postmule.core.logging_setup import setup_logging
+from postmule.core.platform_paths import default_install_dir, user_config_dir
 
 APP_NAME = "PostMule"
 DEFAULT_ENC = Path("credentials.enc")
@@ -41,19 +42,17 @@ def _resolve_default_config() -> Path:
     Search order:
       1. POSTMULE_CONFIG env var
       2. ./config.yaml  (dev / running from install dir)
-      3. %APPDATA%/PostMule/config.yaml  (Windows standard install)
-      4. ~/.postmule/config.yaml         (macOS / Linux)
+      3. Per-OS user config dir/PostMule/config.yaml (standard install)
+      4. ~/.postmule/config.yaml  (legacy fallback, all platforms)
     """
     if env := os.environ.get("POSTMULE_CONFIG"):
         return Path(env)
     local = Path("config.yaml")
     if local.exists():
         return local
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        candidate = Path(appdata) / "PostMule" / "config.yaml"
-        if candidate.exists():
-            return candidate
+    candidate = user_config_dir() / "config.yaml"
+    if candidate.exists():
+        return candidate
     home_candidate = Path.home() / ".postmule" / "config.yaml"
     if home_candidate.exists():
         return home_candidate
@@ -207,7 +206,7 @@ def _log_candidates(today: str) -> list[Path]:
     """Return candidate verbose log paths for the given date, relative-cwd first."""
     return [
         Path("logs") / "verbose" / f"{today}.log",
-        Path("C:/ProgramData/PostMule/logs/verbose") / f"{today}.log",
+        default_install_dir() / "logs" / "verbose" / f"{today}.log",
     ]
 
 
@@ -328,7 +327,9 @@ def restore(config: str, backup_name: str | None, list_only: bool, dry_run: bool
 
 @main.command("uninstall")
 @click.option(
-    "--install-dir", default="C:\\ProgramData\\PostMule", help="Installation directory to remove."
+    "--install-dir",
+    default=str(default_install_dir()),
+    help="Installation directory to remove.",
 )
 @click.option("--keep-data", is_flag=True, help="Keep JSON data files and credentials.enc.")
 def uninstall(install_dir: str, keep_data: bool) -> None:

@@ -115,6 +115,20 @@ PLAN 14.18.
 
 ---
 
+## Platform Paths
+
+**Per-OS default config/install dirs live in `postmule/core/platform_paths.py` (2026-06-15).**
+`cli.py`'s config search, log-file fallback, and uninstall default, plus `pipeline.py`'s
+default local storage `root_dir`, previously hardcoded `%APPDATA%` and
+`C:\ProgramData\PostMule`. `default_install_dir()` and `user_config_dir()` keep those exact
+values on Windows (no behavior change for existing installs) and add macOS
+(`~/Library/Application Support/PostMule`) and Linux (XDG `config`/`data` dirs, falling back
+to `~/.config` and `~/.local/share`) equivalents. `config.example.yaml` and the install docs
+remain Windows-specific since they describe the Windows installer's generated config; the
+per-OS defaults only apply when `install_dir`/`root_dir` are absent from config. See #105.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**

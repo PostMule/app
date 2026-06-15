@@ -21,6 +21,7 @@ from postmule.agents import bill_email_intake, email_ingestion, entity_discovery
 from postmule.agents import classification as classify_agent
 from postmule.agents.integrity import duplicate_detector
 from postmule.core.config import Config
+from postmule.core.platform_paths import default_install_dir
 from postmule.data import bills as bills_data
 from postmule.data import entities as entity_data
 from postmule.data import forward_to_me as ftm_data
@@ -562,7 +563,7 @@ def _build_storage_provider(cfg_entry: dict, credentials: dict, get_google_creds
 
     if service == "local":
         from postmule.providers.storage.local import LocalStorageProvider
-        root_dir = cfg_entry.get("root_dir", "C:\\ProgramData\\PostMule\\files")
+        root_dir = cfg_entry.get("root_dir", str(default_install_dir() / "files"))
         return LocalStorageProvider(root_dir=root_dir)
 
     if service == "google_drive":

@@ -4,12 +4,15 @@ Local filesystem storage provider.
 All files are stored in a configurable directory on the local machine.
 PDFs and JSON data stay on disk — no cloud account or credentials required.
 
+If root_dir is omitted, it defaults to the per-OS PostMule data directory
+(see postmule.core.platform_paths.default_install_dir) plus "files".
+
 Config example:
     storage:
       providers:
         - service: local
           enabled: true
-          root_dir: "C:\\ProgramData\\PostMule\\files"
+          root_dir: "C:\\ProgramData\\PostMule\\files"  # Windows; per-OS default if omitted
           folders:
             inbox: "Inbox"
             bills: "Bills"
