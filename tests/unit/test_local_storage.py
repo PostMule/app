@@ -5,7 +5,6 @@ All tests use a temporary directory — no real filesystem side effects.
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -78,9 +77,16 @@ class TestMoveFile:
         assert not Path(file_id).exists()
         assert (Path(folders["bills"]) / "bill.pdf").exists()
 
+    def test_returns_new_file_id(self, storage, sample_pdf):
+        folders = storage.ensure_folder_structure({"inbox": "Inbox", "bills": "Bills"})
+        file_id = storage.upload_pdf(sample_pdf, "bill.pdf", folders["inbox"])
+        new_id = storage.move_file(file_id, folders["bills"], folders["inbox"])
+        assert new_id == str(Path(folders["bills"]) / "bill.pdf")
+
     def test_no_error_if_source_missing(self, storage, tmp_path):
         folders = storage.ensure_folder_structure({"bills": "Bills"})
-        storage.move_file("/nonexistent/file.pdf", folders["bills"], folders["bills"])
+        result = storage.move_file("/nonexistent/file.pdf", folders["bills"], folders["bills"])
+        assert result is None
 
 
 class TestRenameFile:
@@ -91,8 +97,14 @@ class TestRenameFile:
         assert not Path(file_id).exists()
         assert (Path(folders["inbox"]) / "new.pdf").exists()
 
+    def test_returns_new_file_id(self, storage, sample_pdf):
+        folders = storage.ensure_folder_structure({"inbox": "Inbox"})
+        file_id = storage.upload_pdf(sample_pdf, "old.pdf", folders["inbox"])
+        new_id = storage.rename_file(file_id, "new.pdf")
+        assert new_id == str(Path(folders["inbox"]) / "new.pdf")
+
     def test_no_error_if_file_missing(self, storage):
-        storage.rename_file("/nonexistent/file.pdf", "renamed.pdf")
+        assert storage.rename_file("/nonexistent/file.pdf", "renamed.pdf") is None
 
 
 class TestListFolder:

@@ -151,8 +151,8 @@ class LocalStorageProvider:
         log.debug(f"Wrote {len(data)} bytes → {dest}")
         return str(dest)
 
-    def move_file(self, file_id: str, new_folder_id: str, old_folder_id: str) -> None:
-        """Move a file to a new folder."""
+    def move_file(self, file_id: str, new_folder_id: str, old_folder_id: str) -> str | None:
+        """Move a file to a new folder. Returns the file's new path (file_id)."""
         src = self._resolve(file_id)
         dest_dir = Path(new_folder_id)
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -160,17 +160,20 @@ class LocalStorageProvider:
         if src.exists():
             shutil.move(str(src), str(dest))
             log.debug(f"Moved {src.name} → {dest_dir}")
-        else:
-            log.warning(f"move_file: source not found: {src}")
+            return str(dest)
+        log.warning(f"move_file: source not found: {src}")
+        return None
 
-    def rename_file(self, file_id: str, new_name: str) -> None:
-        """Rename a file in-place."""
+    def rename_file(self, file_id: str, new_name: str) -> str | None:
+        """Rename a file in-place. Returns the file's new path (file_id)."""
         src = self._resolve(file_id)
         if src.exists():
-            src.rename(src.parent / new_name)
+            dest = src.parent / new_name
+            src.rename(dest)
             log.debug(f"Renamed {src.name} → {new_name}")
-        else:
-            log.warning(f"rename_file: file not found: {src}")
+            return str(dest)
+        log.warning(f"rename_file: file not found: {src}")
+        return None
 
     def list_folder(self, folder_id: str) -> list[dict[str, str]]:
         """Return file metadata for all files in a folder."""

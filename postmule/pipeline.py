@@ -17,12 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from postmule.agents import bill_email_intake
+from postmule.agents import bill_email_intake, email_ingestion, entity_discovery, mailbox_ingestion
 from postmule.agents import classification as classify_agent
-from postmule.agents import email_ingestion
-from postmule.agents import mailbox_ingestion
-from postmule.agents import entity_discovery
-from postmule.agents.integrity import duplicate_detector, run_monitor
+from postmule.agents.integrity import duplicate_detector
 from postmule.core.config import Config
 from postmule.data import bills as bills_data
 from postmule.data import entities as entity_data
@@ -53,8 +50,10 @@ class Providers:
     safety_agent: Any
     folder_ids: dict = field(default_factory=dict)
     vpm: Any = None  # VpmProvider — set when VPM credentials are configured
-    mailbox_notification_providers: list = field(default_factory=list)  # EmailProvider(s) with role: mailbox_notifications
-    bill_intake_providers: list = field(default_factory=list)  # EmailProvider(s) with role: bill_intake
+    # EmailProvider(s) with role: mailbox_notifications
+    mailbox_notification_providers: list = field(default_factory=list)
+    # EmailProvider(s) with role: bill_intake
+    bill_intake_providers: list = field(default_factory=list)
 
 
 def run_daily_pipeline(
@@ -155,7 +154,9 @@ def run_daily_pipeline(
                 scan_sender = mailbox_provider_cfg.get("scan_sender", "noreply@virtualpostmail.com")
                 scan_subject = mailbox_provider_cfg.get("scan_subject_prefix", "[Scan Request]")
                 if not providers.mailbox_notification_providers:
-                    log.warning("No mailbox notification email providers configured — skipping ingestion")
+                    log.warning(
+                        "No mailbox notification email providers configured — skipping ingestion"
+                    )
                 for ep in providers.mailbox_notification_providers:
                     try:
                         ingestion = email_ingestion.run_ingestion(
@@ -182,7 +183,8 @@ def run_daily_pipeline(
             # Step 1b: Bill email intake (bill_intake role providers)
             # ------------------------------------------------------------------
             if providers.bill_intake_providers:
-                log.info(f"Step 1b: Bill email intake ({len(providers.bill_intake_providers)} provider(s))")
+                n = len(providers.bill_intake_providers)
+                log.info(f"Step 1b: Bill email intake ({n} provider(s))")
             for bp in providers.bill_intake_providers:
                 try:
                     bi = bill_email_intake.run_intake(
@@ -232,22 +234,27 @@ def run_daily_pipeline(
                     stats["pdfs_processed"] += 1
 
                     # Move file to correct Drive folder
+                    final_file_id = ingested.drive_file_id
                     if not dry_run and ingested.drive_file_id:
                         dest_folder_id = providers.folder_ids.get(
                             _to_folder_key(result.destination_folder),
                             providers.folder_ids.get("needs_review", "")
                         )
                         if dest_folder_id and dest_folder_id != providers.folder_ids.get("inbox"):
-                            providers.drive.move_file(
-                                ingested.drive_file_id,
+                            moved_id = providers.drive.move_file(
+                                final_file_id,
                                 dest_folder_id,
                                 providers.folder_ids.get("inbox", ""),
                             )
-                            providers.drive.rename_file(ingested.drive_file_id, result.suggested_filename)
+                            final_file_id = moved_id or final_file_id
+                            renamed_id = providers.drive.rename_file(
+                                final_file_id, result.suggested_filename
+                            )
+                            final_file_id = renamed_id or final_file_id
 
                     # Store in JSON
                     if not dry_run:
-                        _store_processed_mail(data_dir, result, ingested.drive_file_id,
+                        _store_processed_mail(data_dir, result, final_file_id,
                                               ingested.received_date)
 
                     # Collect for daily summary
@@ -282,11 +289,13 @@ def run_daily_pipeline(
             # Run entity discovery once for all names collected this run
             if all_discovered_names:
                 try:
+                    fuzzy_threshold = cfg.get("entities", "fuzzy_match_threshold", default=0.85)
+                    auto_approve_days = cfg.get("entities", "auto_approve_after_days", default=7)
                     entity_discovery.run_entity_discovery(
                         names_from_mail=all_discovered_names,
                         data_dir=data_dir,
-                        fuzzy_threshold=float(cfg.get("entities", "fuzzy_match_threshold", default=0.85)) * 100,
-                        auto_approve_days=int(cfg.get("entities", "auto_approve_after_days", default=7)),
+                        fuzzy_threshold=float(fuzzy_threshold) * 100,
+                        auto_approve_days=int(auto_approve_days),
                     )
                 except Exception as exc:
                     log.warning(f"Entity discovery failed (non-fatal): {exc}")
@@ -303,7 +312,10 @@ def run_daily_pipeline(
     log.info("Step 3/7: Duplicate detection")
     try:
         dup_result = duplicate_detector.run_duplicate_detection(
-            drive=providers.drive, folder_ids=providers.folder_ids, data_dir=data_dir, dry_run=dry_run
+            drive=providers.drive,
+            folder_ids=providers.folder_ids,
+            data_dir=data_dir,
+            dry_run=dry_run,
         )
         if dup_result.get("duplicates_found", 0) > 0:
             log.info(f"Moved {dup_result['moved']} duplicates to /Duplicates")
@@ -350,7 +362,9 @@ def run_daily_pipeline(
         all_bills = (bills_data.load_bills(data_dir, _cur_year) +
                      bills_data.load_bills(data_dir, _cur_year - 1))
         for _addr in _recipients:
-            send_bill_due_alert(smtp_cfg, _addr, all_bills, bill_due_alert_days, dry_run=dry_run, data_dir=data_dir)
+            send_bill_due_alert(
+                smtp_cfg, _addr, all_bills, bill_due_alert_days, dry_run=dry_run, data_dir=data_dir
+            )
     except Exception as exc:
         log.warning(f"Bill due alert failed (non-fatal): {exc}")
 
@@ -486,7 +500,9 @@ def _build_providers(cfg: Config, credentials: dict, data_dir: Path):
         return _google_creds_cache[0]
 
     drive = _build_storage_provider(storage_provider_cfg, credentials, _get_google_creds)
-    sheets = _build_spreadsheet_provider(spreadsheet_provider_cfg, credentials, data_dir, _get_google_creds)
+    sheets = _build_spreadsheet_provider(
+        spreadsheet_provider_cfg, credentials, data_dir, _get_google_creds
+    )
 
     safety_agent = build_safety_agent(cfg, llm_provider_name, data_dir)
     llm = _build_llm_provider(llm_provider_cfg, credentials, safety_agent)
@@ -576,10 +592,15 @@ def _build_storage_provider(cfg_entry: dict, credentials: dict, get_google_creds
         creds = credentials.get("onedrive", {})
         return OneDriveProvider(access_token=creds.get("access_token", ""))
 
-    raise ValueError(f"Unknown storage provider: '{service}'. Supported: local, google_drive, s3, dropbox, onedrive")
+    raise ValueError(
+        f"Unknown storage provider: '{service}'. "
+        "Supported: local, google_drive, s3, dropbox, onedrive"
+    )
 
 
-def _build_spreadsheet_provider(cfg_entry: dict, credentials: dict, data_dir: Path, get_google_creds):
+def _build_spreadsheet_provider(
+    cfg_entry: dict, credentials: dict, data_dir: Path, get_google_creds
+):
     """Instantiate the configured spreadsheet provider."""
     service = cfg_entry.get("service", "sqlite")
 
@@ -612,7 +633,10 @@ def _build_spreadsheet_provider(cfg_entry: dict, credentials: dict, data_dir: Pa
         creds = credentials.get("excel_online", {})
         return ExcelOnlineProvider(access_token=creds.get("access_token", ""))
 
-    raise ValueError(f"Unknown spreadsheet provider: '{service}'. Supported: sqlite, none, google_sheets, airtable, excel_online")
+    raise ValueError(
+        f"Unknown spreadsheet provider: '{service}'. "
+        "Supported: sqlite, none, google_sheets, airtable, excel_online"
+    )
 
 
 def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
@@ -649,7 +673,9 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
             model=cfg_entry.get("model", "llama3.2"),
         )
 
-    raise ValueError(f"Unknown LLM provider: '{service}'. Supported: gemini, openai, anthropic, ollama")
+    raise ValueError(
+        f"Unknown LLM provider: '{service}'. Supported: gemini, openai, anthropic, ollama"
+    )
 
 
 def _store_processed_mail(data_dir: Path, result, drive_file_id: str, received_date: str) -> None:
@@ -779,7 +805,10 @@ def _save_bill_matches(data_dir: Path, matches: list) -> None:
 
 
 def _update_sheets(sheets, data_dir: Path) -> None:
-    from postmule.data import bills as bd, notices as nd, forward_to_me as fd, run_log as rl
+    from postmule.data import bills as bd
+    from postmule.data import forward_to_me as fd
+    from postmule.data import notices as nd
+    from postmule.data import run_log as rl
     sheets.get_or_create_workbook()
     sheets.write_sheet("Bills", bd.to_sheet_rows(bd.load_bills(data_dir)))
     sheets.write_sheet("Notices", nd.to_sheet_rows(nd.load_notices(data_dir)))

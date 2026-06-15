@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
+from postmule.agents.classification import ProcessedMail
 from postmule.core.config import load_config
 from postmule.pipeline import (
     Providers,
@@ -15,7 +16,6 @@ from postmule.pipeline import (
     _update_sheets,
     run_daily_pipeline,
 )
-from postmule.agents.classification import ProcessedMail
 from postmule.providers.llm.gemini import ClassificationResult
 
 
@@ -105,7 +105,9 @@ class TestRunDailyPipelineDryRun:
 
 
 class TestRunDailyPipelineProviderFailure:
-    def test_provider_init_failure_returns_failed_status(self, minimal_config, credentials, tmp_path):
+    def test_provider_init_failure_returns_failed_status(
+        self, minimal_config, credentials, tmp_path
+    ):
         with patch("postmule.pipeline._build_providers", side_effect=RuntimeError("no creds")):
             stats = run_daily_pipeline(minimal_config, credentials, tmp_path, dry_run=True)
         assert stats["status"] == "failed"
@@ -115,8 +117,7 @@ class TestRunDailyPipelineProviderFailure:
 class TestRunDailyPipelineWithEmails:
     def test_processes_email_pdfs(self, minimal_config, credentials, tmp_path):
         providers = _make_all_providers()
-        gmail = providers.mailbox_notification_providers[0]
-        drive, llm = providers.drive, providers.llm
+        llm = providers.llm
 
         # Set up a fake email with a PDF
         from postmule.agents.email_ingestion import IngestedPDF
@@ -149,7 +150,9 @@ class TestRunDailyPipelineWithEmails:
         )
 
         with patch("postmule.pipeline._build_providers", return_value=providers):
-            with patch("postmule.agents.email_ingestion.run_ingestion", return_value=ingestion_result):
+            with patch(
+                "postmule.agents.email_ingestion.run_ingestion", return_value=ingestion_result
+            ):
                 with patch("postmule.agents.classification.classify_pdf") as mock_classify:
                     mock_classify.return_value = ProcessedMail(
                         original_path=fake_pdf,
@@ -172,6 +175,73 @@ class TestRunDailyPipelineWithEmails:
 
         assert stats["emails_found"] == 1
         assert stats["pdfs_processed"] == 1
+
+    def test_chains_move_and_rename_file_ids(self, minimal_config, credentials, tmp_path):
+        """move_file/rename_file may return a new file_id (e.g. local storage paths);
+        the chained id must be used for the subsequent call and for JSON storage."""
+        providers = _make_all_providers()
+        drive, llm = providers.drive, providers.llm
+        drive.move_file.return_value = "moved-id"
+        drive.rename_file.return_value = "renamed-id"
+
+        from postmule.agents.email_ingestion import IngestedPDF, IngestionResult
+        fake_pdf = tmp_path / "scan.pdf"
+        fake_pdf.write_bytes(b"%PDF-1.4 test")
+
+        ingested = IngestedPDF(
+            filename="scan.pdf",
+            local_path=fake_pdf,
+            source_email_id="msg1",
+            received_date="2025-03-01",
+            drive_file_id="inbox-id",
+        )
+        ingestion_result = IngestionResult(
+            emails_found=1, pdfs_saved=1, pdfs_uploaded=1, ingested=[ingested]
+        )
+
+        llm.classify.return_value = ClassificationResult(
+            category="Bill",
+            confidence=0.95,
+            sender="ATT",
+            recipients=["Alice"],
+            amount_due=94.0,
+            due_date="2025-04-05",
+            account_number=None,
+            summary="Monthly bill",
+            tokens_used=100,
+        )
+
+        with patch("postmule.pipeline._build_providers", return_value=providers):
+            with patch(
+                "postmule.agents.email_ingestion.run_ingestion", return_value=ingestion_result
+            ):
+                with patch("postmule.agents.classification.classify_pdf") as mock_classify:
+                    with patch("postmule.agents.summary._send_email"):
+                        mock_classify.return_value = ProcessedMail(
+                            original_path=fake_pdf,
+                            category="Bill",
+                            confidence=0.95,
+                            sender="ATT",
+                            recipients=["Alice"],
+                            amount_due=94.0,
+                            due_date="2025-04-05",
+                            account_number=None,
+                            summary="Monthly bill",
+                            ocr_text="",
+                            ocr_method="pdfplumber",
+                            processed_date="2025-03-01",
+                            suggested_filename="2025-03-01_Alice_ATT_Bill.pdf",
+                            destination_folder="Bills",
+                            tokens_used=100,
+                        )
+                        run_daily_pipeline(minimal_config, credentials, tmp_path, dry_run=False)
+
+        drive.move_file.assert_called_once_with("inbox-id", "bills", "inbox")
+        drive.rename_file.assert_called_once_with("moved-id", "2025-03-01_Alice_ATT_Bill.pdf")
+
+        from postmule.data.bills import load_bills
+        bills = load_bills(tmp_path, year=2025)
+        assert bills[0]["drive_file_id"] == "renamed-id"
 
 
 class TestStoreProcessedMail:

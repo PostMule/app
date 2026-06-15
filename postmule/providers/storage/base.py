@@ -5,7 +5,7 @@ Storage provider base — Protocol for all file-storage backends.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from postmule.providers import HealthResult
 
@@ -24,10 +24,12 @@ class StorageProvider(Protocol):
         """Upload a PDF; return the remote file ID."""
         ...
 
-    def move_file(self, file_id: str, new_folder_id: str, old_folder_id: str) -> None:
+    def move_file(self, file_id: str, new_folder_id: str, old_folder_id: str) -> str | None:
+        """Move a file; return the file's new ID if it changed, else None."""
         ...
 
-    def rename_file(self, file_id: str, new_name: str) -> None:
+    def rename_file(self, file_id: str, new_name: str) -> str | None:
+        """Rename a file; return the file's new ID if it changed, else None."""
         ...
 
     def list_folder(self, folder_id: str) -> list[dict[str, str]]:
