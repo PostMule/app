@@ -13,6 +13,8 @@ The blocker: `hooks/app/pre-commit.ps1` blocks any commit that stages exactly on
 
 The completed work is left uncommitted in the working tree (and duplicated on `autopilot/recovery-20260615-082236`, pushed). Once the hook fix lands, the next run should commit it directly — no further implementation needed. `p1-macos-install-contract` is marked `needs-owner` in ops STATE.json (attempts=2), alongside `p1-security-core`.
 
+Two commands were permission-denied this run while diagnosing the above: a read-only query of the git hooks-path configuration, and a checkout of four tracked files to discard local modifications (the modifications are the work described above, intentionally left in place).
+
 ---
 
 ## Next
