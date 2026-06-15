@@ -35,6 +35,19 @@ The manual steps below are for reference or if you prefer to run each step yours
 
 **No Google Cloud Console setup required.** PostMule defaults to local file storage and IMAP email — no OAuth, no Drive API, no Sheets API. Google integrations are available as opt-in providers if you want cloud storage.
 
+## Optional: OCR for scanned PDFs
+
+`pdfplumber` handles PDFs that already have a text layer. For scanned (image-only)
+PDFs, PostMule falls back to `pytesseract`, which needs the Tesseract OCR binary
+installed separately — `pip install` does not provide it.
+
+- **Windows**: install from the [UB-Mannheim Tesseract build](https://github.com/UB-Mannheim/tesseract/wiki) and ensure `tesseract.exe` is on `PATH`.
+- **macOS**: `brew install tesseract`
+- **Linux**: `sudo apt install tesseract-ocr` (or your distro's package manager)
+
+If the binary is missing, OCR falls back to an empty result and the PDF is filed as
+`NeedsReview`; the log records which install command to run.
+
 ## Step 1 — Clone and install
 
 ```powershell

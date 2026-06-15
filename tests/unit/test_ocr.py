@@ -10,15 +10,13 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from postmule.agents.ocr import (
     _MIN_TEXT_LENGTH,
     _extract_with_pdfplumber,
     _extract_with_tesseract,
+    _tesseract_install_hint,
     extract_text,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -62,8 +60,12 @@ class TestExtractTextPdfplumberSufficient:
         pdf = _make_pdf(tmp_path)
         long_text = _long_text()
 
-        with patch("postmule.agents.ocr._extract_with_pdfplumber", return_value=long_text) as mock_plumb, \
-             patch("postmule.agents.ocr._extract_with_tesseract") as mock_tess:
+        with (
+            patch(
+                "postmule.agents.ocr._extract_with_pdfplumber", return_value=long_text
+            ) as mock_plumb,
+            patch("postmule.agents.ocr._extract_with_tesseract") as mock_tess,
+        ):
             result = extract_text(pdf)
 
         assert result == long_text
@@ -74,8 +76,10 @@ class TestExtractTextPdfplumberSufficient:
         pdf = _make_pdf(tmp_path)
         threshold_text = "A" * _MIN_TEXT_LENGTH  # exactly equal
 
-        with patch("postmule.agents.ocr._extract_with_pdfplumber", return_value=threshold_text), \
-             patch("postmule.agents.ocr._extract_with_tesseract") as mock_tess:
+        with (
+            patch("postmule.agents.ocr._extract_with_pdfplumber", return_value=threshold_text),
+            patch("postmule.agents.ocr._extract_with_tesseract") as mock_tess,
+        ):
             extract_text(pdf)
 
         mock_tess.assert_not_called()
@@ -87,8 +91,12 @@ class TestExtractTextFallsBackToTesseract:
         short_text = "short"
         tesseract_text = _long_text(100)
 
-        with patch("postmule.agents.ocr._extract_with_pdfplumber", return_value=short_text), \
-             patch("postmule.agents.ocr._extract_with_tesseract", return_value=tesseract_text) as mock_tess:
+        with (
+            patch("postmule.agents.ocr._extract_with_pdfplumber", return_value=short_text),
+            patch(
+                "postmule.agents.ocr._extract_with_tesseract", return_value=tesseract_text
+            ) as mock_tess,
+        ):
             result = extract_text(pdf)
 
         assert result == tesseract_text
@@ -228,7 +236,8 @@ class TestExtractWithTesseract:
         mock_pdf2image = MagicMock()
         mock_pdf2image.convert_from_path.side_effect = Exception("tesseract error")
 
-        with patch.dict(sys.modules, {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}):
+        modules = {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}
+        with patch.dict(sys.modules, modules):
             result = _extract_with_tesseract(pdf, 300, "eng")
 
         assert result == ""
@@ -243,7 +252,8 @@ class TestExtractWithTesseract:
         mock_pdf2image = MagicMock()
         mock_pdf2image.convert_from_path.return_value = [mock_img]
 
-        with patch.dict(sys.modules, {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}):
+        modules = {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}
+        with patch.dict(sys.modules, modules):
             with patch("tempfile.TemporaryDirectory") as mock_tmpdir:
                 mock_tmpdir.return_value.__enter__ = MagicMock(return_value="/tmp/fake")
                 mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
@@ -262,7 +272,8 @@ class TestExtractWithTesseract:
         mock_pdf2image = MagicMock()
         mock_pdf2image.convert_from_path.return_value = [mock_img1, mock_img2]
 
-        with patch.dict(sys.modules, {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}):
+        modules = {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}
+        with patch.dict(sys.modules, modules):
             with patch("tempfile.TemporaryDirectory") as mock_tmpdir:
                 mock_tmpdir.return_value.__enter__ = MagicMock(return_value="/tmp/fake")
                 mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
@@ -280,7 +291,8 @@ class TestExtractWithTesseract:
         mock_pdf2image = MagicMock()
         mock_pdf2image.convert_from_path.return_value = [mock_img]
 
-        with patch.dict(sys.modules, {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}):
+        modules = {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}
+        with patch.dict(sys.modules, modules):
             with patch("tempfile.TemporaryDirectory") as mock_tmpdir:
                 mock_tmpdir.return_value.__enter__ = MagicMock(return_value="/tmp/fake")
                 mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
@@ -289,3 +301,53 @@ class TestExtractWithTesseract:
         call_kwargs = mock_pdf2image.convert_from_path.call_args
         assert call_kwargs.kwargs.get("dpi") == 600 or 600 in call_kwargs.args
         mock_pytesseract.image_to_string.assert_called_once_with(mock_img, lang="fra")
+
+    def test_tesseract_not_found_returns_empty_and_logs_install_hint(self, tmp_path, caplog):
+        """When the tesseract binary itself is missing, pytesseract raises
+        TesseractNotFoundError — this must be reported with an install hint,
+        not swallowed at debug level like other extraction errors."""
+        import logging
+
+        pdf = _make_pdf(tmp_path)
+        mock_img = MagicMock()
+
+        mock_pytesseract = MagicMock()
+
+        class _TesseractNotFoundError(EnvironmentError):
+            pass
+
+        mock_pytesseract.TesseractNotFoundError = _TesseractNotFoundError
+        mock_pytesseract.image_to_string.side_effect = _TesseractNotFoundError()
+
+        mock_pdf2image = MagicMock()
+        mock_pdf2image.convert_from_path.return_value = [mock_img]
+
+        modules = {"pytesseract": mock_pytesseract, "pdf2image": mock_pdf2image}
+        with patch.dict(sys.modules, modules):
+            with patch("tempfile.TemporaryDirectory") as mock_tmpdir:
+                mock_tmpdir.return_value.__enter__ = MagicMock(return_value="/tmp/fake")
+                mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
+                with caplog.at_level(logging.WARNING, logger="postmule.ocr"):
+                    result = _extract_with_tesseract(pdf, 300, "eng")
+
+        assert result == ""
+        assert "tesseract" in caplog.text.lower()
+        assert _tesseract_install_hint() in caplog.text
+
+
+class TestTesseractInstallHint:
+    def test_windows_hint_mentions_installer(self, monkeypatch):
+        monkeypatch.setattr("postmule.agents.ocr.sys.platform", "win32")
+        hint = _tesseract_install_hint()
+        assert "tesseract" in hint.lower()
+        assert "UB-Mannheim" in hint
+
+    def test_macos_hint_mentions_brew(self, monkeypatch):
+        monkeypatch.setattr("postmule.agents.ocr.sys.platform", "darwin")
+        hint = _tesseract_install_hint()
+        assert "brew install tesseract" in hint
+
+    def test_linux_hint_mentions_package_manager(self, monkeypatch):
+        monkeypatch.setattr("postmule.agents.ocr.sys.platform", "linux")
+        hint = _tesseract_install_hint()
+        assert "tesseract-ocr" in hint

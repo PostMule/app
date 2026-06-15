@@ -10,8 +10,8 @@ Returns the extracted text string. Empty string means no text could be extracted
 
 from __future__ import annotations
 
-import io
 import logging
+import sys
 import tempfile
 from pathlib import Path
 
@@ -79,6 +79,21 @@ def _extract_with_pdfplumber(pdf_path: Path) -> str:
         return ""
 
 
+def _tesseract_install_hint() -> str:
+    """Per-OS instructions for installing the Tesseract OCR binary."""
+    if sys.platform == "win32":
+        return (
+            "Install Tesseract OCR from https://github.com/UB-Mannheim/tesseract/wiki "
+            "and ensure tesseract.exe is on PATH."
+        )
+    if sys.platform == "darwin":
+        return "Install Tesseract OCR with: brew install tesseract"
+    return (
+        "Install Tesseract OCR with: sudo apt install tesseract-ocr "
+        "(or your distro's package manager)"
+    )
+
+
 def _extract_with_tesseract(pdf_path: Path, dpi: int, lang: str) -> str:
     try:
         import pytesseract  # type: ignore[import]
@@ -87,7 +102,7 @@ def _extract_with_tesseract(pdf_path: Path, dpi: int, lang: str) -> str:
         log.warning(
             "pytesseract or pdf2image not installed — cannot perform image OCR.\n"
             "Install with: pip install pytesseract pdf2image\n"
-            "Also install Tesseract OCR from https://github.com/UB-Mannheim/tesseract/wiki"
+            f"Also install the Tesseract OCR binary. {_tesseract_install_hint()}"
         )
         return ""
 
@@ -100,5 +115,12 @@ def _extract_with_tesseract(pdf_path: Path, dpi: int, lang: str) -> str:
                 pages.append(page_text)
             return "\n\n".join(pages)
     except Exception as exc:
-        log.debug(f"tesseract error on {pdf_path.name}: {exc}")
+        not_found_cls = getattr(pytesseract, "TesseractNotFoundError", ())
+        if isinstance(not_found_cls, type) and isinstance(exc, not_found_cls):
+            log.warning(
+                f"Tesseract binary not found — cannot OCR {pdf_path.name}. "
+                f"{_tesseract_install_hint()}"
+            )
+        else:
+            log.debug(f"tesseract error on {pdf_path.name}: {exc}")
         return ""
