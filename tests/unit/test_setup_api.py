@@ -138,3 +138,16 @@ class TestTestGemini:
         with patch("postmule.web.routes.setup._probe_gemini_key", return_value=(True, None)) as mock_probe:
             r = _post(client, "/setup/api/test-gemini", {"gemini_key": "  AIzaSyFake123  "})
         mock_probe.assert_called_once_with("AIzaSyFake123")
+
+
+# ---------------------------------------------------------------------------
+# GET /setup/step/4 — install text should not be Windows-only
+# ---------------------------------------------------------------------------
+
+class TestStep4Copy:
+    def test_master_password_copy_is_not_windows_only(self, client):
+        r = client.get("/setup/step/4")
+        body = r.get_data(as_text=True)
+        assert "Windows Credential Manager" in body
+        assert "macOS Keychain" in body
+        assert "Linux" in body

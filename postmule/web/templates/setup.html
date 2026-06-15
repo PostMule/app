@@ -351,7 +351,7 @@
     <!-- ── Step 4: Master password ───────────────────────────────── -->
     {% elif step == 4 %}
       <p class="setup-title">Create a master password</p>
-      <p class="setup-subtitle">This password encrypts your credentials on disk. PostMule will remember it via Windows Credential Manager — you won't need to type it again.</p>
+      <p class="setup-subtitle">This password encrypts your credentials on disk. PostMule will remember it via your system's secure credential storage (Windows Credential Manager, macOS Keychain, or Secret Service on Linux) — you won't need to type it again.</p>
       <form method="post" action="/setup/step/4">
         <label class="setup-label" for="master_password">Master password</label>
         <input class="setup-input" type="password" id="master_password" name="master_password"
