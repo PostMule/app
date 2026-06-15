@@ -53,6 +53,7 @@ PostMule/
 - `postmule/agents/backup.py` — `run_backup`, `run_restore`, `list_backups`, `get_last_backup`
 - `postmule/core/constants.py` — category names, status values
 - `postmule/core/platform_paths.py` — per-OS default config/install dirs (Windows/macOS/Linux)
+- `postmule/core/scheduler.py` — per-OS scheduler adapter (Windows Task Scheduler / macOS launchd); used by `cli.py install-task`/`uninstall-task`
 - `postmule/data/_io.py` — `atomic_write`, `year_from`, `recent_years` (no domain logic)
 
 ## Dev Commands

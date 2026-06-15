@@ -129,6 +129,22 @@ per-OS defaults only apply when `install_dir`/`root_dir` are absent from config.
 
 ---
 
+## Scheduler Adapter
+
+**Per-OS scheduler adapter lives in `postmule/core/scheduler.py` (2026-06-15).**
+`cli.py`'s `install-task`/`uninstall-task` commands and the `configure` (installer wizard)
+command now go through `get_scheduler()`, which returns a `WindowsScheduler` or
+`MacScheduler`. Windows keeps the existing `Register-ScheduledTask`/`Unregister-ScheduledTask`
+PowerShell calls (task name `PostMule Daily Run`, daily trigger at the configured local
+HH:MM, unchanged for existing installs). macOS registers a per-user LaunchAgents plist
+(`com.postmule.dailyrun`) with a `StartCalendarInterval` daily trigger via `launchctl
+bootstrap`/`bootout`. The macOS command resolves to `shutil.which("postmule")` if a console
+script is on PATH, else falls back to `[sys.executable, "-m", "postmule.cli"]` — this is
+forward-compatible with whatever the macOS install contract (pending) produces. The macOS
+path is implemented but untested on real hardware; verify at bring-up. See #105.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**

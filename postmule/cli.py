@@ -477,35 +477,32 @@ def _build_config_yaml(
     return header + yaml.dump(cfg, sort_keys=False, allow_unicode=True)
 
 
-def _do_install_task(run_time: str, work_dir: str) -> None:
-    """Register the Windows Task Scheduler daily task for PostMule."""
-    import subprocess
+def _scheduled_task_name() -> str:
+    """Per-OS name/label for PostMule's registered daily-run scheduler entry."""
+    return "PostMule Daily Run" if sys.platform == "win32" else "com.postmule.dailyrun"
 
-    task_name = "PostMule Daily Run"
-    exe = str(Path(sys.executable).parent / "postmule.exe")
-    ps = (
-        f'$action   = New-ScheduledTaskAction -Execute "{exe}" -WorkingDirectory "{work_dir}"; '
-        f'$trigger  = New-ScheduledTaskTrigger -Daily -At "{run_time}"; '
-        f'$settings = New-ScheduledTaskSettingsSet '
-        f'  -ExecutionTimeLimit (New-TimeSpan -Hours 2) '
-        f'  -RestartCount 1 -RestartInterval (New-TimeSpan -Minutes 30) '
-        f'  -StartWhenAvailable; '
-        f'if (Get-ScheduledTask -TaskName "{task_name}" -ErrorAction SilentlyContinue) {{ '
-        f'  Unregister-ScheduledTask -TaskName "{task_name}" -Confirm:$false }}; '
-        f'Register-ScheduledTask -TaskName "{task_name}" -Action $action -Trigger $trigger '
-        f'  -Settings $settings -RunLevel Highest '
-        f'  -Description "PostMule daily mail processing run" | Out-Null'
-    )
-    result = subprocess.run(
-        ["powershell.exe", "-NonInteractive", "-Command", ps],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        click.echo(
-            f"[WARNING] Task Scheduler registration failed: {result.stderr.strip()}", err=True
-        )
-    else:
-        click.echo(f"Task '{task_name}' registered — runs daily at {run_time}.")
+
+def _scheduled_command() -> list[str]:
+    """Per-OS command line for the scheduled daily run."""
+    if sys.platform == "win32":
+        return [str(Path(sys.executable).parent / "postmule.exe")]
+    import shutil
+
+    exe = shutil.which("postmule")
+    return [exe] if exe else [sys.executable, "-m", "postmule.cli"]
+
+
+def _do_install_task(run_time: str, work_dir: str) -> None:
+    """Register the per-OS scheduled daily task for PostMule."""
+    from postmule.core.scheduler import get_scheduler
+
+    task_name = _scheduled_task_name()
+    try:
+        get_scheduler().register(task_name, _scheduled_command(), run_time, work_dir)
+    except (NotImplementedError, RuntimeError) as exc:
+        click.echo(f"[WARNING] Scheduler registration failed: {exc}", err=True)
+        return
+    click.echo(f"Task '{task_name}' registered — runs daily at {run_time}.")
 
 
 @main.command("install-task")
@@ -518,27 +515,26 @@ def _do_install_task(run_time: str, work_dir: str) -> None:
 )
 @click.option("--work-dir", default=None, help="Working directory for the scheduled task.")
 def install_task(run_time: str, work_dir: str | None) -> None:
-    """Register PostMule as a Windows Task Scheduler daily task."""
-    _do_install_task(run_time, work_dir or str(Path(sys.executable).parent.parent))
+    """Register PostMule's per-OS scheduled daily task (Windows Task Scheduler / macOS launchd)."""
+    if sys.platform == "win32":
+        default_work_dir = str(Path(sys.executable).parent.parent)
+    else:
+        default_work_dir = str(default_install_dir())
+    _do_install_task(run_time, work_dir or default_work_dir)
 
 
 @main.command("uninstall-task")
 def uninstall_task() -> None:
-    """Remove the PostMule Windows Task Scheduler entry."""
-    import subprocess
+    """Remove PostMule's per-OS scheduled daily task entry."""
+    from postmule.core.scheduler import get_scheduler
 
-    task_name = "PostMule Daily Run"
-    ps = (
-        f'if (Get-ScheduledTask -TaskName "{task_name}" -ErrorAction SilentlyContinue) {{ '
-        f'  Unregister-ScheduledTask -TaskName "{task_name}" -Confirm:$false; '
-        f'  Write-Host "Task removed." '
-        f'}} else {{ Write-Host "Task not found — nothing to remove." }}'
-    )
-    result = subprocess.run(
-        ["powershell.exe", "-NonInteractive", "-Command", ps],
-        capture_output=True, text=True,
-    )
-    click.echo((result.stdout or result.stderr).strip())
+    task_name = _scheduled_task_name()
+    try:
+        get_scheduler().unregister(task_name)
+    except NotImplementedError as exc:
+        click.echo(f"[WARNING] {exc}", err=True)
+        return
+    click.echo(f"Task '{task_name}' removed (if it existed).")
 
 
 @main.command("serve")

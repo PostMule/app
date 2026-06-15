@@ -188,6 +188,59 @@ class TestUninstallCommand:
             assert "-KeepData" in call_args
 
 
+class TestScheduledTaskCommands:
+    def test_install_task_windows_uses_windows_scheduler(self, runner, tmp_path):
+        mock_adapter = MagicMock()
+        with (
+            patch.object(cli_module.sys, "platform", "win32"),
+            patch("postmule.core.scheduler.get_scheduler", return_value=mock_adapter) as get_sched,
+        ):
+            result = runner.invoke(
+                main, ["install-task", "--time", "03:00", "--work-dir", str(tmp_path)]
+            )
+        assert result.exit_code == 0
+        get_sched.assert_called_once_with()
+        name, command, run_time, work_dir = mock_adapter.register.call_args[0]
+        assert name == "PostMule Daily Run"
+        assert command[0].endswith("postmule.exe")
+        assert run_time == "03:00"
+        assert work_dir == str(tmp_path)
+
+    def test_install_task_macos_uses_mac_scheduler(self, runner, tmp_path):
+        mock_adapter = MagicMock()
+        with (
+            patch.object(cli_module.sys, "platform", "darwin"),
+            patch("shutil.which", return_value="/usr/local/bin/postmule"),
+            patch("postmule.core.scheduler.get_scheduler", return_value=mock_adapter),
+        ):
+            result = runner.invoke(
+                main, ["install-task", "--time", "04:30", "--work-dir", str(tmp_path)]
+            )
+        assert result.exit_code == 0
+        name, command, run_time, work_dir = mock_adapter.register.call_args[0]
+        assert name == "com.postmule.dailyrun"
+        assert command == ["/usr/local/bin/postmule"]
+        assert run_time == "04:30"
+        assert work_dir == str(tmp_path)
+
+    def test_install_task_registration_failure_warns(self, runner, tmp_path):
+        mock_adapter = MagicMock()
+        mock_adapter.register.side_effect = RuntimeError("boom")
+        with patch("postmule.core.scheduler.get_scheduler", return_value=mock_adapter):
+            result = runner.invoke(
+                main, ["install-task", "--time", "02:00", "--work-dir", str(tmp_path)]
+            )
+        assert result.exit_code == 0
+        assert "boom" in result.output
+
+    def test_uninstall_task_calls_unregister(self, runner):
+        mock_adapter = MagicMock()
+        with patch("postmule.core.scheduler.get_scheduler", return_value=mock_adapter):
+            result = runner.invoke(main, ["uninstall-task"])
+        assert result.exit_code == 0
+        mock_adapter.unregister.assert_called_once()
+
+
 class TestBuildConfigYaml:
     """_build_config_yaml() must stay in sync with config.example.yaml."""
 
