@@ -337,6 +337,15 @@ def uninstall(install_dir: str, keep_data: bool) -> None:
     import subprocess
     from pathlib import Path as _Path
 
+    if sys.platform != "win32":
+        click.echo(
+            "The 'uninstall' command currently supports Windows only "
+            "(it runs installer/uninstall.ps1). Remove PostMule's files, "
+            "scheduled task, and PATH entry manually on this platform.",
+            err=True,
+        )
+        sys.exit(1)
+
     script = _Path(__file__).parent.parent / "installer" / "uninstall.ps1"
     if not script.exists():
         click.echo(f"Uninstall script not found at {script}.", err=True)

@@ -7,7 +7,7 @@ Checks the run_log.json to ensure a run occurred within the expected window.
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+import sys
 from pathlib import Path
 
 from postmule.data.run_log import get_last_run
@@ -43,7 +43,10 @@ def check_run_completed(data_dir: Path, max_hours_late: int = 4) -> dict:
     if not end_time_str:
         return {
             "ok": False,
-            "message": f"Last run (ID {last.get('run_id','?')}) has no end_time — it may have crashed.",
+            "message": (
+                f"Last run (ID {last.get('run_id', '?')}) "
+                "has no end_time — it may have crashed."
+            ),
         }
 
     try:
@@ -66,12 +69,17 @@ def check_run_completed(data_dir: Path, max_hours_late: int = 4) -> dict:
         }
 
     if hours_ago > max_hours_late:
+        scheduler_hint = (
+            "Check Windows Task Scheduler to see if the task ran."
+            if sys.platform == "win32"
+            else "Check the scheduled task (launchd) to see if it ran."
+        )
         return {
             "ok": False,
             "message": (
                 f"Last successful run was {hours_ago:.1f} hours ago (at {end_time_str}).\n"
                 f"Expected at most {max_hours_late} hours ago.\n"
-                "Check Windows Task Scheduler to see if the task ran."
+                f"{scheduler_hint}"
             ),
         }
 

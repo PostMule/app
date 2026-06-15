@@ -132,6 +132,14 @@ class TestUpdateConfigCommand:
 
 
 class TestUninstallCommand:
+    def test_non_windows_exits_without_subprocess(self, runner, tmp_path, monkeypatch):
+        monkeypatch.setattr("postmule.cli.sys.platform", "darwin")
+        with patch("subprocess.run") as mock_run:
+            result = runner.invoke(main, ["uninstall", "--install-dir", str(tmp_path)])
+        assert mock_run.call_count == 0
+        assert result.exit_code != 0
+        assert "windows" in result.output.lower()
+
     def test_cancel_does_not_call_subprocess(self, runner, tmp_path):
         script = tmp_path / "uninstall.ps1"
         script.write_text("# fake")

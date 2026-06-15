@@ -1,9 +1,6 @@
 """Unit tests for postmule.agents.integrity.run_monitor."""
 
-import json
 from datetime import datetime, timedelta, timezone
-
-import pytest
 
 from postmule.agents.integrity.run_monitor import check_run_completed
 from postmule.data.run_log import append_run
@@ -38,6 +35,21 @@ class TestCheckRunCompleted:
         result = check_run_completed(tmp_path, max_hours_late=4)
         assert result["ok"] is False
         assert "hours ago" in result["message"]
+
+    def test_old_run_message_names_windows_scheduler_on_win32(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("postmule.agents.integrity.run_monitor.sys.platform", "win32")
+        old = (datetime.now(tz=timezone.utc) - timedelta(hours=10)).isoformat()
+        _write_run(tmp_path, old, status="success")
+        result = check_run_completed(tmp_path, max_hours_late=4)
+        assert "Windows Task Scheduler" in result["message"]
+
+    def test_old_run_message_names_launchd_on_darwin(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("postmule.agents.integrity.run_monitor.sys.platform", "darwin")
+        old = (datetime.now(tz=timezone.utc) - timedelta(hours=10)).isoformat()
+        _write_run(tmp_path, old, status="success")
+        result = check_run_completed(tmp_path, max_hours_late=4)
+        assert "launchd" in result["message"]
+        assert "Windows Task Scheduler" not in result["message"]
 
     def test_failed_run_returns_not_ok(self, tmp_path):
         now_str = datetime.now(tz=timezone.utc).isoformat()
