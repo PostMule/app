@@ -101,6 +101,20 @@ The 2026-04-04 council never examined the cloud-LLM dependency, token cost, or p
 
 ---
 
+## Storage Provider Interface
+
+**`StorageProvider.move_file` and `rename_file` return `str | None` (the new file_id), not `None`.**
+The p1-e2e-fixture-gate run (PLAN 14.18) found that `run_daily_pipeline` called `move_file()` then
+`rename_file()` with the same file_id, but for `LocalStorageProvider` the file_id is the absolute
+path, and `move_file` already relocated the file — so `rename_file` looked for it at the old path
+and failed with a warning. Cloud providers (Drive, S3, etc.) use stable opaque IDs that don't
+change on move/rename, so this only surfaced once a path-based local backend existed. The
+Protocol, `LocalStorageProvider`, and `pipeline.py` now chain the returned id through both calls
+and into JSON storage; cloud providers may continue returning `None` (id unchanged). See #105,
+PLAN 14.18.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**
