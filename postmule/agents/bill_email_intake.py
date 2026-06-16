@@ -18,8 +18,8 @@ log = logging.getLogger("postmule.agents.bill_email_intake")
 
 
 def run_intake(
-    email_provider,     # EmailProvider (role: bill_intake)
-    drive,              # DriveProvider
+    email_provider,  # EmailProvider (role: bill_intake)
+    drive,  # DriveProvider
     inbox_folder_id: str,
     download_dir: Path,
     dry_run: bool = False,
@@ -83,25 +83,29 @@ def run_intake(
             if dry_run:
                 log.info(f"[DRY RUN] Would upload: {filename}")
                 result.pdfs_uploaded += 1
-                result.ingested.append(IngestedPDF(
-                    filename=filename,
-                    local_path=local_path,
-                    source_email_id=email.message_id,
-                    received_date=email.received_date,
-                ))
+                result.ingested.append(
+                    IngestedPDF(
+                        filename=filename,
+                        local_path=local_path,
+                        source_email_id=email.message_id,
+                        received_date=email.received_date,
+                    )
+                )
                 continue
 
             # Upload to Drive Inbox
             try:
                 drive_id = drive.upload_pdf(local_path, filename, inbox_folder_id, verify=True)
                 result.pdfs_uploaded += 1
-                result.ingested.append(IngestedPDF(
-                    filename=filename,
-                    local_path=local_path,
-                    source_email_id=email.message_id,
-                    received_date=email.received_date,
-                    drive_file_id=drive_id,
-                ))
+                result.ingested.append(
+                    IngestedPDF(
+                        filename=filename,
+                        local_path=local_path,
+                        source_email_id=email.message_id,
+                        received_date=email.received_date,
+                        drive_file_id=drive_id,
+                    )
+                )
                 log.info(f"Uploaded to Drive Inbox: {filename}")
             except Exception as exc:
                 msg = f"Failed to upload {filename} to Drive: {exc}"
@@ -114,9 +118,7 @@ def run_intake(
             try:
                 email_provider.mark_as_processed(email.message_id)
             except Exception as exc:
-                log.warning(
-                    f"Failed to mark email {email.message_id[:12]}... as processed: {exc}"
-                )
+                log.warning(f"Failed to mark email {email.message_id[:12]}... as processed: {exc}")
         elif upload_failed:
             log.warning(
                 f"Email {email.message_id[:12]}... NOT marked processed due to upload failure(s) "

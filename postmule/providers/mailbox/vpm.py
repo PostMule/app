@@ -30,7 +30,7 @@ class MailItem:
     mail_item_id: str
     received_date: str  # ISO YYYY-MM-DD
     sender: str
-    scan_date: str      # ISO YYYY-MM-DD
+    scan_date: str  # ISO YYYY-MM-DD
 
 
 class VpmProvider:
@@ -51,6 +51,7 @@ class VpmProvider:
     def _get_session(self):
         if self._session is None:
             import requests  # type: ignore[import]
+
             self._session = requests.Session()
             self._session.headers.update({"User-Agent": "PostMule/0.1"})
         return self._session
@@ -82,6 +83,7 @@ class VpmProvider:
     def health_check(self):
         """Return a HealthResult indicating whether VPM credentials are valid."""
         from postmule.providers import HealthResult
+
         try:
             self._login()
             return HealthResult(ok=True, status="ok", message="VPM login successful")
@@ -132,16 +134,16 @@ class VpmProvider:
                 log.debug(f"Skipping VPM item with no ID: {raw}")
                 continue
 
-            items.append(MailItem(
-                mail_item_id=mail_item_id,
-                received_date=_parse_vpm_date(
-                    raw.get("receivedDate") or raw.get("dateReceived") or ""
-                ),
-                sender=raw.get("senderName") or raw.get("sender") or "",
-                scan_date=_parse_vpm_date(
-                    raw.get("scanDate") or raw.get("dateScan") or ""
-                ),
-            ))
+            items.append(
+                MailItem(
+                    mail_item_id=mail_item_id,
+                    received_date=_parse_vpm_date(
+                        raw.get("receivedDate") or raw.get("dateReceived") or ""
+                    ),
+                    sender=raw.get("senderName") or raw.get("sender") or "",
+                    scan_date=_parse_vpm_date(raw.get("scanDate") or raw.get("dateScan") or ""),
+                )
+            )
 
         log.info(f"VPM: {len(items)} unprocessed mail item(s)")
         return items
@@ -208,6 +210,7 @@ class VpmProvider:
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
 
 def _parse_vpm_date(date_str: str) -> str:
     """

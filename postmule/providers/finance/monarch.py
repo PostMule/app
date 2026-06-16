@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
 
-from postmule.providers.finance.base import BankTransaction, BillMatchResult
+from postmule.providers.finance.base import BankTransaction
 
 log = logging.getLogger("postmule.finance.monarch")
 
@@ -107,14 +107,12 @@ class MonarchProvider:
         """Parse a single Monarch transaction row element."""
         try:
             # Attempt multiple selector patterns — Monarch's DOM varies across releases.
-            date_el = (
-                row.query_selector("[data-testid='transaction-date']")
-                or row.query_selector("[class*='date']")
+            date_el = row.query_selector("[data-testid='transaction-date']") or row.query_selector(
+                "[class*='date']"
             )
-            amount_el = (
-                row.query_selector("[data-testid='transaction-amount']")
-                or row.query_selector("[class*='amount']")
-            )
+            amount_el = row.query_selector(
+                "[data-testid='transaction-amount']"
+            ) or row.query_selector("[class*='amount']")
             merchant_el = (
                 row.query_selector("[data-testid='transaction-merchant']")
                 or row.query_selector("[class*='merchant']")
@@ -126,8 +124,7 @@ class MonarchProvider:
 
             date_str = date_el.inner_text().strip()
             amount_str = (
-                amount_el.inner_text().strip()
-                .replace("$", "").replace(",", "").replace("+", "")
+                amount_el.inner_text().strip().replace("$", "").replace(",", "").replace("+", "")
             )
             payee = merchant_el.inner_text().strip()
 

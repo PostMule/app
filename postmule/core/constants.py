@@ -22,7 +22,7 @@ To generate these values, run (developer only, one-time):
 # Users never need to touch Google Cloud Console.
 # TODO: Replace "" with real values after running  bash scripts/dev_setup.sh
 # ---------------------------------------------------------------------------
-GOOGLE_CLIENT_ID: str = ""   # Set by running: bash scripts/dev_setup.sh
+GOOGLE_CLIENT_ID: str = ""  # Set by running: bash scripts/dev_setup.sh
 GOOGLE_CLIENT_SECRET: str = ""  # Set by running: bash scripts/dev_setup.sh
 
 # OAuth scopes requested during the single Google consent screen.

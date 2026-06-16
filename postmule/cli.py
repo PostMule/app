@@ -215,6 +215,7 @@ def _log_candidates(today: str) -> list[Path]:
 def logs(lines: int) -> None:
     """Print the tail of today's verbose log."""
     import datetime
+
     today = datetime.date.today().isoformat()
     # Try to find the log file relative to install_dir or cwd
     for path in _log_candidates(today):
@@ -267,9 +268,7 @@ def backup(config: str, dry_run: bool) -> None:
 @click.option(
     "--from-backup", "backup_name", default=None, help="Exact backup filename or 'latest'."
 )
-@click.option(
-    "--list", "list_only", is_flag=True, help="List available backups without restoring."
-)
+@click.option("--list", "list_only", is_flag=True, help="List available backups without restoring.")
 @click.option(
     "--dry-run", is_flag=True, help="Show what would be restored without extracting files."
 )
@@ -359,9 +358,13 @@ def uninstall(install_dir: str, keep_data: bool) -> None:
         return
 
     args = [
-        "powershell.exe", "-ExecutionPolicy", "Bypass",
-        "-File", str(script),
-        "-InstallDir", install_dir,
+        "powershell.exe",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script),
+        "-InstallDir",
+        install_dir,
     ]
     if keep_data:
         args.append("-KeepData")

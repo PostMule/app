@@ -15,7 +15,6 @@ silently assigning the wrong account.
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -75,11 +74,13 @@ def run_entity_discovery(
                 f"Account {entity_data.mask_account_number(account_number)} matched entity "
                 f"'{account_match['friendly_name']}'"
             )
-            result["matched"].append({
-                "name": account_match["friendly_name"],
-                "entity": account_match["canonical_name"],
-                "match_type": "account_number",
-            })
+            result["matched"].append(
+                {
+                    "name": account_match["friendly_name"],
+                    "entity": account_match["canonical_name"],
+                    "match_type": "account_number",
+                }
+            )
             return result
         else:
             # Account number provided but unknown — route to unassigned
@@ -89,11 +90,13 @@ def run_entity_discovery(
             )
             for name in names_from_mail:
                 if name.strip():
-                    result["unassigned"].append({
-                        "name": name.strip(),
-                        "reason": "unrecognized_account",
-                        "account": entity_data.mask_account_number(account_number),
-                    })
+                    result["unassigned"].append(
+                        {
+                            "name": name.strip(),
+                            "reason": "unrecognized_account",
+                            "account": entity_data.mask_account_number(account_number),
+                        }
+                    )
             return result
 
     # --- Name-only matching (no account number) ---
@@ -105,11 +108,13 @@ def run_entity_discovery(
         # Exact match (canonical name, alias, or friendly name)
         matched_entity = _find_exact_match(name, entities)
         if matched_entity:
-            result["matched"].append({
-                "name": name,
-                "entity": matched_entity["canonical_name"],
-                "match_type": "exact",
-            })
+            result["matched"].append(
+                {
+                    "name": name,
+                    "entity": matched_entity["canonical_name"],
+                    "match_type": "exact",
+                }
+            )
             continue
 
         # Fuzzy match
@@ -131,11 +136,13 @@ def run_entity_discovery(
                         similarity=score / 100.0,
                         auto_approve_days=auto_approve_days,
                     )
-                    result["proposed"].append({
-                        "name": name,
-                        "likely_entity": entity["canonical_name"],
-                        "similarity": round(score / 100.0, 3),
-                    })
+                    result["proposed"].append(
+                        {
+                            "name": name,
+                            "likely_entity": entity["canonical_name"],
+                            "similarity": round(score / 100.0, 3),
+                        }
+                    )
                     log.info(
                         f"Proposed alias: '{name}' -> '{entity['canonical_name']}' "
                         f"(similarity={score:.1f}%)"

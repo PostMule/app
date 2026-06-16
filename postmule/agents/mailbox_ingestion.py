@@ -76,25 +76,29 @@ def run_vpm_ingestion(
         if dry_run:
             log.info(f"[DRY RUN] Would upload: {filename}")
             result.pdfs_uploaded += 1
-            result.ingested.append(IngestedPDF(
-                filename=filename,
-                local_path=local_path,
-                source_email_id=item.mail_item_id,
-                received_date=item.received_date,
-            ))
+            result.ingested.append(
+                IngestedPDF(
+                    filename=filename,
+                    local_path=local_path,
+                    source_email_id=item.mail_item_id,
+                    received_date=item.received_date,
+                )
+            )
             continue
 
         # Upload to Drive Inbox
         try:
             drive_id = drive.upload_pdf(local_path, filename, inbox_folder_id, verify=True)
             result.pdfs_uploaded += 1
-            result.ingested.append(IngestedPDF(
-                filename=filename,
-                local_path=local_path,
-                source_email_id=item.mail_item_id,
-                received_date=item.received_date,
-                drive_file_id=drive_id,
-            ))
+            result.ingested.append(
+                IngestedPDF(
+                    filename=filename,
+                    local_path=local_path,
+                    source_email_id=item.mail_item_id,
+                    received_date=item.received_date,
+                    drive_file_id=drive_id,
+                )
+            )
             log.info(f"Uploaded to Drive Inbox: {filename}")
         except Exception as exc:
             msg = f"Failed to upload {filename} to Drive: {exc}"

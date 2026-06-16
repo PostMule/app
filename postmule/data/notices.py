@@ -27,8 +27,14 @@ from typing import Any
 from postmule.data._io import atomic_write, recent_years, year_from
 
 _HEADERS = [
-    "ID", "Date Received", "Date Processed", "Sender", "Recipients",
-    "Summary", "Drive File ID", "Filename",
+    "ID",
+    "Date Received",
+    "Date Processed",
+    "Sender",
+    "Recipients",
+    "Summary",
+    "Drive File ID",
+    "Filename",
 ]
 
 
@@ -137,16 +143,16 @@ def update_tags(data_dir: Path, notice_id: str, tag: str, action: str) -> bool:
 def to_sheet_rows(notices: list[dict[str, Any]]) -> list[list[Any]]:
     rows = [_HEADERS]
     for n in notices:
-        rows.append([
-            n.get("id", ""),
-            n.get("date_received", ""),
-            n.get("date_processed", ""),
-            n.get("sender", ""),
-            ", ".join(n.get("recipients", [])),
-            n.get("summary", ""),
-            n.get("drive_file_id", ""),
-            n.get("filename", ""),
-        ])
+        rows.append(
+            [
+                n.get("id", ""),
+                n.get("date_received", ""),
+                n.get("date_processed", ""),
+                n.get("sender", ""),
+                ", ".join(n.get("recipients", [])),
+                n.get("summary", ""),
+                n.get("drive_file_id", ""),
+                n.get("filename", ""),
+            ]
+        )
     return rows
-
-

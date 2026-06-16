@@ -65,22 +65,46 @@ def search_mail(
     for year in _all_bill_notice_years(data_dir):
         for bill in bills_data.load_bills(data_dir, year):
             item = {"_type": bill.get("category_override", "Bill"), **bill}
-            if _matches(item, types=types, entity_id=entity_id, owner_id=owner_id,
-                        lifecycle=lifecycle, q_lower=q_lower,
-                        date_from=date_from, date_to=date_to, tag_lower=tag_lower):
+            if _matches(
+                item,
+                types=types,
+                entity_id=entity_id,
+                owner_id=owner_id,
+                lifecycle=lifecycle,
+                q_lower=q_lower,
+                date_from=date_from,
+                date_to=date_to,
+                tag_lower=tag_lower,
+            ):
                 results.append(item)
         for notice in notices_data.load_notices(data_dir, year):
             item = {"_type": notice.get("category_override", "Notice"), **notice}
-            if _matches(item, types=types, entity_id=entity_id, owner_id=owner_id,
-                        lifecycle=lifecycle, q_lower=q_lower,
-                        date_from=date_from, date_to=date_to, tag_lower=tag_lower):
+            if _matches(
+                item,
+                types=types,
+                entity_id=entity_id,
+                owner_id=owner_id,
+                lifecycle=lifecycle,
+                q_lower=q_lower,
+                date_from=date_from,
+                date_to=date_to,
+                tag_lower=tag_lower,
+            ):
                 results.append(item)
 
     for ftm in ftm_data.load_forward_to_me(data_dir):
         item = {"_type": ftm.get("category_override", "ForwardToMe"), **ftm}
-        if _matches(item, types=types, entity_id=entity_id, owner_id=owner_id,
-                    lifecycle=lifecycle, q_lower=q_lower,
-                    date_from=date_from, date_to=date_to, tag_lower=tag_lower):
+        if _matches(
+            item,
+            types=types,
+            entity_id=entity_id,
+            owner_id=owner_id,
+            lifecycle=lifecycle,
+            q_lower=q_lower,
+            date_from=date_from,
+            date_to=date_to,
+            tag_lower=tag_lower,
+        ):
             results.append(item)
 
     results.sort(key=lambda x: x.get("date_received", ""), reverse=True)
@@ -135,11 +159,13 @@ def _matches(
 
     # free text
     if q_lower:
-        searchable = " ".join([
-            item.get("sender", ""),
-            item.get("summary", ""),
-            item.get("filename", ""),
-        ]).lower()
+        searchable = " ".join(
+            [
+                item.get("sender", ""),
+                item.get("summary", ""),
+                item.get("filename", ""),
+            ]
+        ).lower()
         if q_lower not in searchable:
             return False
 

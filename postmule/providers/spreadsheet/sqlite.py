@@ -84,7 +84,7 @@ class SqliteSpreadsheetProvider:
             if data_rows:
                 normalized = [_pad_row(row, len(headers)) for row in data_rows]
                 cur.executemany(
-                    f'INSERT INTO "{table}" VALUES ({placeholders})',
+                    f'INSERT INTO "{table}" VALUES ({placeholders})',  # nosec B608 — table/columns sanitized via _safe_identifier; values are parameterized
                     normalized,
                 )
             conn.commit()
@@ -94,6 +94,7 @@ class SqliteSpreadsheetProvider:
 
     def health_check(self):
         from postmule.providers import HealthResult
+
         try:
             conn = sqlite3.connect(self.db_path)
             conn.execute("SELECT 1")
@@ -106,6 +107,7 @@ class SqliteSpreadsheetProvider:
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
 
 def _safe_identifier(name: str) -> str:
     """Replace characters that are unsafe in SQL identifiers with underscores."""

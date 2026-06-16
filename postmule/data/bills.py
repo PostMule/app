@@ -28,16 +28,29 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from postmule.data._io import atomic_write, recent_years, year_from
 
 _HEADERS = [
-    "ID", "Date Received", "Date Processed", "Sender", "Recipients",
-    "Amount Due", "Due Date", "Statement Date", "Account Number", "ACH Descriptor", "Summary",
-    "Drive File ID", "Filename", "Status", "Matched Transaction ID", "Alert Sent Date",
+    "ID",
+    "Date Received",
+    "Date Processed",
+    "Sender",
+    "Recipients",
+    "Amount Due",
+    "Due Date",
+    "Statement Date",
+    "Account Number",
+    "ACH Descriptor",
+    "Summary",
+    "Drive File ID",
+    "Filename",
+    "Status",
+    "Matched Transaction ID",
+    "Alert Sent Date",
 ]
 
 
@@ -77,7 +90,9 @@ def find_bill(data_dir: Path, bill_id: str) -> dict[str, Any] | None:
     return None
 
 
-def update_bill_status(data_dir: Path, bill_id: str, status: str, transaction_id: str | None = None) -> bool:
+def update_bill_status(
+    data_dir: Path, bill_id: str, status: str, transaction_id: str | None = None
+) -> bool:
     for year in recent_years():
         bills = load_bills(data_dir, year)
         for bill in bills:
@@ -173,24 +188,24 @@ def update_tags(data_dir: Path, bill_id: str, tag: str, action: str) -> bool:
 def to_sheet_rows(bills: list[dict[str, Any]]) -> list[list[Any]]:
     rows = [_HEADERS]
     for b in bills:
-        rows.append([
-            b.get("id", ""),
-            b.get("date_received", ""),
-            b.get("date_processed", ""),
-            b.get("sender", ""),
-            ", ".join(b.get("recipients", [])),
-            b.get("amount_due", ""),
-            b.get("due_date", ""),
-            b.get("statement_date", ""),
-            b.get("account_number", ""),
-            b.get("ach_descriptor", ""),
-            b.get("summary", ""),
-            b.get("drive_file_id", ""),
-            b.get("filename", ""),
-            b.get("status", "pending"),
-            b.get("matched_transaction_id", ""),
-            b.get("alert_sent_date", ""),
-        ])
+        rows.append(
+            [
+                b.get("id", ""),
+                b.get("date_received", ""),
+                b.get("date_processed", ""),
+                b.get("sender", ""),
+                ", ".join(b.get("recipients", [])),
+                b.get("amount_due", ""),
+                b.get("due_date", ""),
+                b.get("statement_date", ""),
+                b.get("account_number", ""),
+                b.get("ach_descriptor", ""),
+                b.get("summary", ""),
+                b.get("drive_file_id", ""),
+                b.get("filename", ""),
+                b.get("status", "pending"),
+                b.get("matched_transaction_id", ""),
+                b.get("alert_sent_date", ""),
+            ]
+        )
     return rows
-
-

@@ -4,7 +4,7 @@ LLM provider base — shared types and Protocol for all LLM backends.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from postmule.providers import HealthResult
@@ -35,8 +35,6 @@ class LLMProvider(Protocol):
         ocr_text: str,
         known_names: list[str] | None = None,
         dry_run: bool = False,
-    ) -> ClassificationResult:
-        ...
+    ) -> ClassificationResult: ...
 
-    def health_check(self) -> HealthResult:
-        ...
+    def health_check(self) -> HealthResult: ...

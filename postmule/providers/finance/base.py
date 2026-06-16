@@ -8,7 +8,7 @@ match_bills_to_transactions() is provider-agnostic and lives here.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date as date_type
 from typing import Any
 
@@ -18,8 +18,8 @@ log = logging.getLogger("postmule.finance")
 @dataclass
 class BankTransaction:
     transaction_id: str
-    date: str        # YYYY-MM-DD
-    amount: float    # negative = expense/outflow (normalized across all providers)
+    date: str  # YYYY-MM-DD
+    amount: float  # negative = expense/outflow (normalized across all providers)
     payee: str
     account: str
     category: str = ""
@@ -100,13 +100,15 @@ def match_bills_to_transactions(
             else:
                 confidence = "fuzzy_both"
 
-            matches.append(BillMatchResult(
-                bill_id=bill["id"],
-                transaction_id=txn.transaction_id,
-                amount=bill_amount,
-                date=txn.date,
-                confidence=confidence,
-            ))
+            matches.append(
+                BillMatchResult(
+                    bill_id=bill["id"],
+                    transaction_id=txn.transaction_id,
+                    amount=bill_amount,
+                    date=txn.date,
+                    confidence=confidence,
+                )
+            )
             break  # one match per bill
 
     log.info(f"Bill matching: {len(matches)} matches found from {len(pending_bills)} pending bills")

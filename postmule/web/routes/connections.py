@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 import yaml
 from flask import Blueprint, jsonify, redirect, request, session, url_for
 
-from postmule.core.constants import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_SCOPES
-
 import postmule.web.app as _app
+from postmule.core.constants import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_SCOPES
 
 log = logging.getLogger("postmule.web")
 
@@ -53,7 +53,8 @@ def setup_oauth_google():
 
 @connections_bp.route("/setup/oauth/google/callback")
 def setup_oauth_google_callback():
-    """Receive the authorization code from Google, exchange for tokens, save refresh token to keychain."""
+    """Receive the authorization code from Google, exchange for tokens,
+    save refresh token to keychain."""
     try:
         from google_auth_oauthlib.flow import Flow  # type: ignore[import]
     except ImportError:
@@ -91,6 +92,7 @@ def setup_oauth_google_callback():
 
     try:
         from postmule.core.credentials import save_google_refresh_token
+
         save_google_refresh_token(creds.refresh_token)
     except Exception as exc:
         log.error(f"Failed to save Google refresh token: {exc}")
@@ -128,6 +130,7 @@ def set_connection_provider():
         _app._config_raw = raw
         try:
             from postmule.core.config import load_config
+
             _app._config = load_config(config_path)
         except Exception:
             pass
@@ -187,8 +190,9 @@ def _get_cred(*keys: str):
     """Decrypt credentials.enc and return a nested key. Returns None on any error."""
     try:
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
-        node = creds
+        node: Any = creds
         for k in keys:
             if not isinstance(node, dict):
                 return None
@@ -202,6 +206,7 @@ def _get_account_creds(account_id: str) -> dict:
     """Return the credential dict for a specific email account by UUID."""
     try:
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
         return creds.get("accounts", {}).get(account_id, {})
     except Exception:
@@ -212,8 +217,7 @@ def _find_email_account(account_id: str) -> dict | None:
     """Find an email provider entry by its id field in config.yaml."""
     cfg = _app._config_raw
     return next(
-        (p for p in cfg.get("email", {}).get("providers", [])
-         if p.get("id") == account_id),
+        (p for p in cfg.get("email", {}).get("providers", []) if p.get("id") == account_id),
         None,
     )
 
@@ -233,12 +237,17 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             acct_creds = {}
 
         if service == "gmail":
-            from postmule.core.credentials import google_credentials_available, build_google_credentials
+            from postmule.core.credentials import (
+                build_google_credentials,
+                google_credentials_available,
+            )
+
             if not google_credentials_available():
                 raise ValueError("Google credentials not configured")
             gcreds = build_google_credentials()
             label = ep.get("label_name", "PostMule")
             from postmule.providers.email.gmail import GmailProvider
+
             return GmailProvider(gcreds, label_name=label)
 
         if service == "imap":
@@ -249,6 +258,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             if not ep.get("host"):
                 raise ValueError("IMAP host not configured")
             from postmule.providers.email.imap import ImapProvider
+
             return ImapProvider(
                 host=ep.get("host", ""),
                 port=int(ep.get("port", 993)),
@@ -264,6 +274,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             if not username or not password:
                 raise ValueError("Proton Bridge credentials not configured")
             from postmule.providers.email.proton import ProtonMailProvider
+
             return ProtonMailProvider(
                 username=username,
                 password=password,
@@ -277,6 +288,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             if not token:
                 raise ValueError("Outlook 365 access token not configured")
             from postmule.providers.email.outlook_365 import Outlook365Provider
+
             return Outlook365Provider(
                 access_token=token,
                 processed_category=ep.get("processed_category", "PostMule"),
@@ -287,6 +299,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             if not token:
                 raise ValueError("Outlook.com access token not configured")
             from postmule.providers.email.outlook_com import OutlookComProvider
+
             return OutlookComProvider(
                 access_token=token,
                 processed_category=ep.get("processed_category", "PostMule"),
@@ -295,21 +308,27 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
         raise ValueError(f"Unknown email service: {service}")
 
     if category == "storage" and service == "google_drive":
-        from postmule.core.credentials import google_credentials_available, build_google_credentials
+        from postmule.core.credentials import build_google_credentials, google_credentials_available
+
         if not google_credentials_available():
             raise ValueError("Google credentials not configured")
         creds = build_google_credentials()
         root = (cfg.get("storage", {}).get("providers") or [{}])[0].get("root_folder", "PostMule")
         from postmule.providers.storage.google_drive import DriveProvider
+
         return DriveProvider(creds, root_folder=root)
 
     if category == "spreadsheet" and service == "google_sheets":
-        from postmule.core.credentials import google_credentials_available, build_google_credentials
+        from postmule.core.credentials import build_google_credentials, google_credentials_available
+
         if not google_credentials_available():
             raise ValueError("Google credentials not configured")
         creds = build_google_credentials()
-        name = (cfg.get("spreadsheet", {}).get("providers") or [{}])[0].get("workbook_name", "PostMule")
+        name = (cfg.get("spreadsheet", {}).get("providers") or [{}])[0].get(
+            "workbook_name", "PostMule"
+        )
         from postmule.providers.spreadsheet.google_sheets import SheetsProvider
+
         return SheetsProvider(creds, workbook_name=name)
 
     if category == "llm" and service == "gemini":
@@ -318,6 +337,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             raise ValueError("Gemini API key not configured")
         model = (cfg.get("llm", {}).get("providers") or [{}])[0].get("model", "gemini-1.5-flash")
         from postmule.providers.llm.gemini import GeminiProvider
+
         return GeminiProvider(api_key, model=model)
 
     if category == "mailbox" and service == "vpm":
@@ -326,14 +346,18 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
         if not username or not password:
             raise ValueError("VPM credentials not configured")
         from postmule.providers.mailbox.vpm import VpmProvider
+
         return VpmProvider(username, password)
 
     if category == "llm" and service == "anthropic":
         api_key = _get_cred("anthropic", "api_key")
         if not api_key:
             raise ValueError("Anthropic API key not configured")
-        model = (cfg.get("llm", {}).get("providers") or [{}])[0].get("model", "claude-haiku-4-5-20251001")
+        model = (cfg.get("llm", {}).get("providers") or [{}])[0].get(
+            "model", "claude-haiku-4-5-20251001"
+        )
         from postmule.providers.llm.anthropic import AnthropicProvider
+
         return AnthropicProvider(api_key, model=model)
 
     if category == "llm" and service == "openai":
@@ -342,6 +366,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
             raise ValueError("OpenAI API key not configured")
         model = (cfg.get("llm", {}).get("providers") or [{}])[0].get("model", "gpt-4o-mini")
         from postmule.providers.llm.openai import OpenAIProvider
+
         return OpenAIProvider(api_key, model=model)
 
     if category == "llm" and service == "ollama":
@@ -349,6 +374,7 @@ def _build_provider(category: str, service: str, account_id: str | None = None):
         host = lp.get("host", "http://localhost:11434")
         model = lp.get("model", "llama3.2")
         from postmule.providers.llm.ollama import OllamaProvider
+
         return OllamaProvider(host=host, model=model)
 
     raise ValueError(f"Unknown provider: {category}/{service}")
@@ -397,6 +423,7 @@ def save_provider_config(category: str):
         _app._config_raw = raw
         try:
             from postmule.core.config import load_config
+
             _app._config = load_config(config_path)
         except Exception:
             pass
@@ -444,6 +471,7 @@ def save_service_config(category: str, service: str):
         _app._config_raw = raw
         try:
             from postmule.core.config import load_config
+
             _app._config = load_config(config_path)
         except Exception:
             pass
@@ -465,11 +493,13 @@ _VALID_EMAIL_ROLES = {"mailbox_notifications", "bill_intake"}
 def _save_config_yaml(raw: dict) -> None:
     """Atomically write config.yaml and refresh the in-memory config."""
     config_path = _app._config_path
+    assert config_path is not None, "config path must be set before saving"
     with open(config_path, "w", encoding="utf-8") as f:
         yaml.dump(raw, f, allow_unicode=True, default_flow_style=False)
     _app._config_raw = raw
     try:
         from postmule.core.config import load_config
+
         _app._config = load_config(config_path)
     except Exception:
         pass
@@ -479,6 +509,7 @@ def _save_config_yaml(raw: dict) -> None:
 def add_email_account():
     """Add a new email account to config.yaml with a stable UUID id."""
     import uuid as _uuid
+
     service = request.form.get("service", "").strip()
     role = request.form.get("role", "mailbox_notifications").strip()
     address = request.form.get("address", "").strip()
@@ -535,12 +566,16 @@ def remove_email_account(account_id: str):
 
     # Wipe credentials for this account
     try:
-        from postmule.core.credentials import (
-            _derive_key, _SALT_LEN, load_master_password,
-            decrypt_credentials, CredentialsError,
-        )
-        from cryptography.fernet import Fernet
         import yaml as _yaml
+        from cryptography.fernet import Fernet
+
+        from postmule.core.credentials import (
+            _SALT_LEN,
+            CredentialsError,
+            _derive_key,
+            decrypt_credentials,
+            load_master_password,
+        )
 
         master_pw = load_master_password()
         if master_pw:
@@ -613,14 +648,15 @@ def save_credential():
 
     enc_path = _app._enc_path
     try:
-        from postmule.core.credentials import (
-            _derive_key,
-            _SALT_LEN,
-            load_master_password,
-            decrypt_credentials,
-            CredentialsError,
-        )
         from cryptography.fernet import Fernet
+
+        from postmule.core.credentials import (
+            _SALT_LEN,
+            CredentialsError,
+            _derive_key,
+            decrypt_credentials,
+            load_master_password,
+        )
 
         master_pw = load_master_password()
         if not master_pw:

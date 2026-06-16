@@ -42,12 +42,14 @@ class DriveProvider:
     def _get_service(self):
         if self._service is None:
             from googleapiclient.discovery import build  # type: ignore[import]
+
             self._service = build("drive", "v3", credentials=self.credentials)
         return self._service
 
     def health_check(self):
         """Return a HealthResult indicating whether Drive credentials are valid."""
         from postmule.providers import HealthResult
+
         try:
             svc = self._get_service()
             svc.about().get(fields="user").execute()
@@ -138,11 +140,15 @@ class DriveProvider:
         metadata = {"name": filename, "parents": [folder_id]}
         media = MediaFileUpload(str(local_path), mimetype="application/pdf", resumable=True)
 
-        file = svc.files().create(
-            body=metadata,
-            media_body=media,
-            fields="id, name, size",
-        ).execute()
+        file = (
+            svc.files()
+            .create(
+                body=metadata,
+                media_body=media,
+                fields="id, name, size",
+            )
+            .execute()
+        )
 
         file_id = file["id"]
         log.info(f"Uploaded: {filename} -> Drive ({file_id})")
@@ -196,11 +202,15 @@ class DriveProvider:
         svc = self._get_service()
         metadata = {"name": filename, "parents": [folder_id]}
         media = MediaInMemoryUpload(data, mimetype=mimetype, resumable=False)
-        file = svc.files().create(
-            body=metadata,
-            media_body=media,
-            fields="id, name",
-        ).execute()
+        file = (
+            svc.files()
+            .create(
+                body=metadata,
+                media_body=media,
+                fields="id, name",
+            )
+            .execute()
+        )
         file_id = file["id"]
         log.info(f"Uploaded bytes: {filename} -> Drive ({file_id})")
         return file_id

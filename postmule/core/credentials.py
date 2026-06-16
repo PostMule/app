@@ -46,6 +46,7 @@ class CredentialsError(Exception):
 # Key derivation
 # ------------------------------------------------------------------
 
+
 def _derive_key(master_password: str, salt: bytes) -> bytes:
     """Derive a 32-byte Fernet key from the master password and salt using PBKDF2."""
     kdf = PBKDF2HMAC(
@@ -61,6 +62,7 @@ def _derive_key(master_password: str, salt: bytes) -> bytes:
 # System keychain (keyring)
 # ------------------------------------------------------------------
 
+
 def save_master_password(password: str) -> None:
     """
     Store the master password in the system keychain.
@@ -69,12 +71,10 @@ def save_master_password(password: str) -> None:
     """
     try:
         import keyring  # type: ignore[import]
+
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, password)
     except ImportError:
-        raise CredentialsError(
-            "keyring is not installed.\n"
-            "Run: pip install keyring"
-        )
+        raise CredentialsError("keyring is not installed.\nRun: pip install keyring")
     except Exception as exc:
         raise CredentialsError(
             f"Failed to save master password to system keychain:\n{exc}\n"
@@ -89,11 +89,11 @@ def load_master_password() -> str:
     """
     try:
         import keyring  # type: ignore[import]
+
         value = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
     except ImportError:
         raise CredentialsError(
-            "keyring is not installed — cannot read from system keychain.\n"
-            "Run: pip install keyring"
+            "keyring is not installed — cannot read from system keychain.\nRun: pip install keyring"
         )
     except Exception as exc:
         raise CredentialsError(
@@ -111,6 +111,7 @@ def load_master_password() -> str:
 # ------------------------------------------------------------------
 # Encrypt / decrypt credentials file
 # ------------------------------------------------------------------
+
 
 def encrypt_credentials(yaml_path: Path, enc_path: Path, master_password: str) -> None:
     """
@@ -134,8 +135,7 @@ def encrypt_credentials(yaml_path: Path, enc_path: Path, master_password: str) -
         yaml.safe_load(plaintext)
     except yaml.YAMLError as exc:
         raise CredentialsError(
-            f"credentials.yaml has a syntax error:\n{exc}\n"
-            "Fix the YAML before encrypting."
+            f"credentials.yaml has a syntax error:\n{exc}\nFix the YAML before encrypting."
         ) from exc
 
     salt = os.urandom(_SALT_LEN)
@@ -187,6 +187,7 @@ def decrypt_credentials(enc_path: Path, master_password: str) -> dict[str, Any]:
 # Convenience: load credentials for a running session
 # ------------------------------------------------------------------
 
+
 def load_credentials(enc_path: Path) -> dict[str, Any]:
     """
     Full pipeline: read master password from Credential Manager, decrypt credentials.enc.
@@ -201,15 +202,18 @@ def load_credentials(enc_path: Path) -> dict[str, Any]:
 # (used instead of credentials.yaml for the standard Google flow)
 # ------------------------------------------------------------------
 
+
 def save_google_refresh_token(refresh_token: str) -> None:
     """
     Store the Google OAuth refresh token in the system keychain.
     Called once after the user completes the Google consent screen.
     No master password required — the OS keychain handles encryption.
     """
-    from postmule.core.constants import KEYRING_SERVICE, KEYRING_GOOGLE_REFRESH_TOKEN
+    from postmule.core.constants import KEYRING_GOOGLE_REFRESH_TOKEN, KEYRING_SERVICE
+
     try:
         import keyring  # type: ignore[import]
+
         keyring.set_password(KEYRING_SERVICE, KEYRING_GOOGLE_REFRESH_TOKEN, refresh_token)
     except ImportError:
         raise CredentialsError("keyring is not installed.\nRun: pip install keyring")
@@ -224,9 +228,11 @@ def load_google_refresh_token() -> str:
     Read the Google OAuth refresh token from the system keychain.
     Raises CredentialsError if not found (setup not complete).
     """
-    from postmule.core.constants import KEYRING_SERVICE, KEYRING_GOOGLE_REFRESH_TOKEN
+    from postmule.core.constants import KEYRING_GOOGLE_REFRESH_TOKEN, KEYRING_SERVICE
+
     try:
         import keyring  # type: ignore[import]
+
         value = keyring.get_password(KEYRING_SERVICE, KEYRING_GOOGLE_REFRESH_TOKEN)
     except ImportError:
         raise CredentialsError("keyring is not installed.\nRun: pip install keyring")
@@ -254,7 +260,6 @@ def save_credential(enc_path: "Path", provider: str, field: str, value: str) -> 
         field:    Sub-key, e.g. ``"password"`` or ``"api_key"``
         value:    New string value
     """
-    from pathlib import Path as _Path
     master_password = load_master_password()
     # Load existing — create empty dict if file doesn't exist yet
     if enc_path.exists():
@@ -283,20 +288,19 @@ def google_credentials_available() -> bool:
         return False
 
 
-def build_google_credentials() -> "google.oauth2.credentials.Credentials":
+def build_google_credentials() -> Any:
     """
     Build a google.oauth2.credentials.Credentials object from the stored
     refresh token and the baked-in client_id / client_secret.
     The credentials auto-refresh when expired (no user interaction needed).
     """
     from postmule.core.constants import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_SCOPES
+
     try:
-        from google.oauth2.credentials import Credentials  # type: ignore[import]
         from google.auth.transport.requests import Request  # type: ignore[import]
+        from google.oauth2.credentials import Credentials  # type: ignore[import]
     except ImportError:
-        raise CredentialsError(
-            "google-auth is not installed.\nRun: pip install google-auth"
-        )
+        raise CredentialsError("google-auth is not installed.\nRun: pip install google-auth")
 
     if not GOOGLE_CLIENT_ID:
         raise CredentialsError(

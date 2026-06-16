@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
-from postmule.providers.finance.base import BankTransaction, BillMatchResult
+from postmule.providers.finance.base import BankTransaction
 
 log = logging.getLogger("postmule.finance.ynab")
 
@@ -60,9 +60,7 @@ class YnabProvider:
         try:
             import requests
         except ImportError:
-            raise RuntimeError(
-                "requests is not installed.\nRun: pip install requests"
-            )
+            raise RuntimeError("requests is not installed.\nRun: pip install requests")
 
         since_date = (date.today() - timedelta(days=days)).isoformat()
         url = f"{_BASE_URL}/budgets/{self.budget_id}/transactions"
@@ -78,14 +76,16 @@ class YnabProvider:
         for t in resp.json()["data"]["transactions"]:
             # YNAB milliunits: -94000 = $94.00 outflow. Already negative for expenses.
             amount_dollars = t["amount"] / 1000.0
-            transactions.append(BankTransaction(
-                transaction_id=t["id"],
-                date=t["date"],
-                amount=amount_dollars,
-                payee=t.get("payee_name") or "",
-                account=t.get("account_name") or "",
-                memo=t.get("memo") or "",
-            ))
+            transactions.append(
+                BankTransaction(
+                    transaction_id=t["id"],
+                    date=t["date"],
+                    amount=amount_dollars,
+                    payee=t.get("payee_name") or "",
+                    account=t.get("account_name") or "",
+                    memo=t.get("memo") or "",
+                )
+            )
 
         log.info(f"Fetched {len(transactions)} transactions from YNAB")
         return transactions
@@ -110,6 +110,6 @@ class YnabProvider:
             log.info(f"Updated YNAB transaction {transaction_id} payee to '{new_name}'")
             return True
         log.warning(
-            f"Failed to update YNAB transaction {transaction_id}: {resp.status_code} {resp.text[:200]}"
+            f"Failed to update YNAB transaction {transaction_id}: {resp.status_code} {resp.text[:200]}"  # noqa: E501
         )
         return False

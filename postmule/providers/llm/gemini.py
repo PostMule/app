@@ -77,23 +77,27 @@ class GeminiProvider:
         if self._client is None:
             try:
                 import google.generativeai as genai  # type: ignore[import]
+
                 genai.configure(api_key=self.api_key)
                 self._client = genai.GenerativeModel(self.model_name)
             except ImportError:
                 raise RuntimeError(
-                    "google-generativeai is not installed.\n"
-                    "Run: pip install google-generativeai"
+                    "google-generativeai is not installed.\nRun: pip install google-generativeai"
                 )
         return self._client
 
     def health_check(self):
         """Return a HealthResult indicating whether the Gemini API key is valid."""
         from postmule.providers import HealthResult
+
         try:
             import google.generativeai as genai  # type: ignore[import]
+
             genai.configure(api_key=self.api_key)
             list(genai.list_models())
-            return HealthResult(ok=True, status="ok", message=f"Gemini connected ({self.model_name})")
+            return HealthResult(
+                ok=True, status="ok", message=f"Gemini connected ({self.model_name})"
+            )
         except Exception as exc:
             return HealthResult(ok=False, status="error", message=str(exc))
 
@@ -124,8 +128,8 @@ class GeminiProvider:
                 due_date=None,
                 account_number=None,
                 summary="[dry-run — no API call made]",
-            statement_date=None,
-            ach_descriptor=None,
+                statement_date=None,
+                ach_descriptor=None,
             )
 
         names_str = ", ".join(known_names) if known_names else "unknown"
@@ -150,8 +154,7 @@ class GeminiProvider:
         except Exception as exc:
             log.error(f"Gemini API call failed: {exc}")
             raise RuntimeError(
-                f"Gemini classification failed: {exc}\n"
-                "Check your API key and network connection."
+                f"Gemini classification failed: {exc}\nCheck your API key and network connection."
             ) from exc
 
         # Correct the token count if actual usage exceeded the pre-call estimate
@@ -169,7 +172,9 @@ class GeminiProvider:
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            log.warning(f"Gemini returned non-JSON response, falling back to NeedsReview. Raw: {raw[:200]}")
+            log.warning(
+                f"Gemini returned non-JSON response, falling back to NeedsReview. Raw: {raw[:200]}"
+            )
             return ClassificationResult(
                 category="NeedsReview",
                 confidence=0.0,

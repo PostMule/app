@@ -82,7 +82,8 @@ class Config:
     def email_providers_by_role(self, role: str) -> list[dict]:
         """Return enabled email provider entries with the given role."""
         return [
-            p for p in (self.get("email", "providers") or [])
+            p
+            for p in (self.get("email", "providers") or [])
             if p.get("role") == role and p.get("enabled", True)
         ]
 

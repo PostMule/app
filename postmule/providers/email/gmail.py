@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import base64
 import logging
-from pathlib import Path
 from typing import Any
 
 from postmule.providers.email.base import EmailMessage  # re-exported for callers
@@ -42,12 +41,14 @@ class GmailProvider:
     def _get_service(self):
         if self._service is None:
             from googleapiclient.discovery import build  # type: ignore[import]
+
             self._service = build("gmail", "v1", credentials=self.credentials)
         return self._service
 
     def health_check(self):
         """Return a HealthResult indicating whether Gmail credentials are valid."""
         from postmule.providers import HealthResult
+
         try:
             svc = self._get_service()
             svc.users().labels().list(userId="me").execute()
@@ -71,7 +72,7 @@ class GmailProvider:
             List of EmailMessage objects with attachment data loaded.
         """
         svc = self._get_service()
-        label_id = self._get_or_create_label()
+        self._get_or_create_label()
 
         # Search: from sender, NOT already labelled
         query = f"from:{sender_filter} subject:{subject_filter} -label:{self.label_name}"
@@ -159,9 +160,7 @@ class GmailProvider:
 
     def _load_email(self, svc, message_id: str) -> EmailMessage | None:
         try:
-            msg = svc.users().messages().get(
-                userId="me", id=message_id, format="full"
-            ).execute()
+            msg = svc.users().messages().get(userId="me", id=message_id, format="full").execute()
         except Exception as exc:
             log.warning(f"Failed to load message {message_id}: {exc}")
             return None
@@ -184,9 +183,7 @@ class GmailProvider:
             attachments=attachments,
         )
 
-    def _extract_pdf_attachments(
-        self, svc, message_id: str, msg: dict
-    ) -> list[dict]:
+    def _extract_pdf_attachments(self, svc, message_id: str, msg: dict) -> list[dict]:
         """Extract all PDF attachments from a message."""
         pdfs = []
         parts = _flatten_parts(msg.get("payload", {}))
@@ -201,9 +198,13 @@ class GmailProvider:
             attachment_id = body.get("attachmentId")
 
             if attachment_id:
-                att = svc.users().messages().attachments().get(
-                    userId="me", messageId=message_id, id=attachment_id
-                ).execute()
+                att = (
+                    svc.users()
+                    .messages()
+                    .attachments()
+                    .get(userId="me", messageId=message_id, id=attachment_id)
+                    .execute()
+                )
                 data = base64.urlsafe_b64decode(att["data"])
             elif "data" in body:
                 data = base64.urlsafe_b64decode(body["data"])
@@ -226,10 +227,15 @@ class GmailProvider:
                 return self._label_id
 
         # Create label
-        new_label = svc.users().labels().create(
-            userId="me",
-            body={"name": self.label_name, "labelListVisibility": "labelShow"},
-        ).execute()
+        new_label = (
+            svc.users()
+            .labels()
+            .create(
+                userId="me",
+                body={"name": self.label_name, "labelListVisibility": "labelShow"},
+            )
+            .execute()
+        )
         self._label_id = new_label["id"]
         log.info(f"Created Gmail label: {self.label_name}")
         return self._label_id
@@ -238,6 +244,7 @@ class GmailProvider:
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
 
 def _flatten_parts(payload: dict) -> list[dict]:
     """Recursively flatten multipart email parts."""

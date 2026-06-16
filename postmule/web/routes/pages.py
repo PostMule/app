@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from flask import Blueprint, redirect, render_template, request, url_for
 
+import postmule.web.app as _app
 from postmule.data import bills as bills_data
 from postmule.data import entities as entity_data
 from postmule.data import entity_corrections as corrections_data
 from postmule.data import forward_to_me as ftm_data
 from postmule.data import notices as notices_data
+from postmule.data import owners as owners_data
 from postmule.data import run_log as run_log_data
 from postmule.data._io import recent_years
 from postmule.data.entities import find_entity_by_account, mask_account_number
-from postmule.data import owners as owners_data
-
-import postmule.web.app as _app
 
 pages_bp = Blueprint("pages", __name__)
 
@@ -25,6 +25,7 @@ pages_bp = Blueprint("pages", __name__)
 @pages_bp.app_context_processor
 def inject_nav():
     from postmule import __version__
+
     update_check_enabled = _app._config_raw.get("deployment", {}).get("update_check_enabled", True)
     return {
         "nav_items": _app._NAV_ITEMS,
@@ -43,8 +44,12 @@ def home():
 def mail():
     initial_tab = request.args.get("tab", "all")
     year = date.today().year
-    all_bills = [b for b in bills_data.load_bills(_app._data_dir, year) if not b.get("filed", False)]
-    all_notices = [n for n in notices_data.load_notices(_app._data_dir, year) if not n.get("filed", False)]
+    all_bills = [
+        b for b in bills_data.load_bills(_app._data_dir, year) if not b.get("filed", False)
+    ]
+    all_notices = [
+        n for n in notices_data.load_notices(_app._data_dir, year) if not n.get("filed", False)
+    ]
     all_ftm = [f for f in ftm_data.load_forward_to_me(_app._data_dir) if not f.get("filed", False)]
 
     last_run = run_log_data.get_last_run(_app._data_dir)
@@ -68,13 +73,23 @@ def mail():
     cfg_raw = _app._config_raw
     _google_services = {"google_drive", "google_sheets", "gmail"}
     _uses_google = (
-        any(p.get("service") in _google_services for p in cfg_raw.get("storage", {}).get("providers", []))
-        or any(p.get("service") in _google_services for p in cfg_raw.get("spreadsheet", {}).get("providers", []))
-        or any(p.get("service") in _google_services for p in cfg_raw.get("email", {}).get("providers", []))
+        any(
+            p.get("service") in _google_services
+            for p in cfg_raw.get("storage", {}).get("providers", [])
+        )
+        or any(
+            p.get("service") in _google_services
+            for p in cfg_raw.get("spreadsheet", {}).get("providers", [])
+        )
+        or any(
+            p.get("service") in _google_services
+            for p in cfg_raw.get("email", {}).get("providers", [])
+        )
     )
     needs_google_reauth = False
     if _uses_google:
         from postmule.core.credentials import google_credentials_available
+
         needs_google_reauth = not google_credentials_available()
 
     all_pending_matches = entity_data.load_pending_matches(_app._data_dir)
@@ -89,6 +104,7 @@ def mail():
     items.sort(key=lambda x: x.get("date_received", ""), reverse=True)
     all_entities = entity_data.load_entities(_app._data_dir)
     from postmule.data import tags as tags_data
+
     all_tags = tags_data.load_tags(_app._data_dir)
     all_owners = owners_data.load_owners(_app._data_dir)
     return render_template(
@@ -140,6 +156,7 @@ def reports():
     f_tag = request.args.get("tag") or None
 
     from postmule.data import tags as tags_data
+
     results = search_mail(
         _app._data_dir,
         types=types_raw or None,
@@ -178,6 +195,7 @@ def reports():
 def _last_payment_display(date_str: str, amount) -> str:
     """Format '2026-03-18' + 94.0 as 'Mar 18 · $94.00'."""
     import calendar as _cal
+
     try:
         parts = date_str.split("-")
         abbr = _cal.month_abbr[int(parts[1])]
@@ -229,7 +247,9 @@ def entities():
 
 @pages_bp.route("/corrections")
 def corrections():
-    from flask import redirect as _redirect, url_for as _url_for
+    from flask import redirect as _redirect
+    from flask import url_for as _url_for
+
     return _redirect(_url_for("pages.logs"))
 
 
@@ -258,6 +278,7 @@ def settings():
     llm_providers = cfg.get("llm", {}).get("providers", [{}])
     mbox_providers = cfg.get("mailbox", {}).get("providers", [{}])
     from postmule.agents.backup import get_last_backup
+
     last_backup = get_last_backup(_app._data_dir) if _app._data_dir else None
     all_owners = owners_data.load_owners(_app._data_dir, include_inactive=True)
     return render_template(
@@ -349,12 +370,14 @@ def view_pdf(mail_id: str):
 # Helpers
 # ------------------------------------------------------------------
 
+
 def _cred_get(*keys: str) -> str | None:
     """Read a nested key from credentials.enc; returns None on any error."""
     try:
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
-        node = creds
+        node: Any = creds
         for k in keys:
             if not isinstance(node, dict):
                 return None
@@ -367,6 +390,7 @@ def _cred_get(*keys: str) -> str | None:
 def _connection_status() -> dict:
     """Return live connection status for each service category."""
     from postmule.core.credentials import google_credentials_available
+
     google_ok = google_credentials_available()
     cfg = _app._config_raw
 
@@ -374,8 +398,10 @@ def _connection_status() -> dict:
     mbox_providers = cfg.get("mailbox", {}).get("providers", [])
     mbox_type = mbox_providers[0].get("service", "") if mbox_providers else ""
     vpm_creds_ok = (
-        bool(_cred_get("vpm", "username")) and bool(_cred_get("vpm", "password"))
-    ) if mbox_type == "vpm" else False
+        (bool(_cred_get("vpm", "username")) and bool(_cred_get("vpm", "password")))
+        if mbox_type == "vpm"
+        else False
+    )
 
     # email
     email_providers = cfg.get("email", {}).get("providers", [])
@@ -387,7 +413,9 @@ def _connection_status() -> dict:
         email_type = ep.get("service", "")
         email_address = ep.get("address", "") or ep.get("username", "")
     imap_creds_ok = bool(_cred_get("imap", "username")) and bool(_cred_get("imap", "password"))
-    proton_creds_ok = bool(_cred_get("proton", "username")) and bool(_cred_get("proton", "password"))
+    proton_creds_ok = bool(_cred_get("proton", "username")) and bool(
+        _cred_get("proton", "password")
+    )
     outlook_365_token = _cred_get("outlook_365", "access_token")
     outlook_com_token = _cred_get("outlook_com", "access_token")
 
@@ -419,7 +447,11 @@ def _connection_status() -> dict:
         llm_model = lp.get("model", "")
     anthropic_key = _cred_get("anthropic", "api_key")
     openai_key = _cred_get("openai", "api_key")
-    ollama_host = (llm_providers[0].get("host", "http://localhost:11434") if llm_providers else "http://localhost:11434")
+    ollama_host = (
+        llm_providers[0].get("host", "http://localhost:11434")
+        if llm_providers
+        else "http://localhost:11434"
+    )
 
     # finance
     finance_providers = cfg.get("finance", {}).get("providers", [])
@@ -449,10 +481,14 @@ def _connection_status() -> dict:
             "imap_host": ep0.get("host", "") if email_type == "imap" else "",
             "imap_port": ep0.get("port", 993) if email_type == "imap" else 993,
             "imap_ssl": ep0.get("use_ssl", True) if email_type == "imap" else True,
-            "imap_processed_folder": ep0.get("processed_folder", "PostMule") if email_type == "imap" else "PostMule",
+            "imap_processed_folder": ep0.get("processed_folder", "PostMule")
+            if email_type == "imap"
+            else "PostMule",
             # Proton
             "proton_creds_ok": proton_creds_ok,
-            "proton_bridge_host": ep0.get("bridge_host", "127.0.0.1") if email_type == "proton" else "127.0.0.1",
+            "proton_bridge_host": ep0.get("bridge_host", "127.0.0.1")
+            if email_type == "proton"
+            else "127.0.0.1",
             "proton_bridge_port": ep0.get("bridge_port", 1143) if email_type == "proton" else 1143,
             # Outlook
             "outlook_365_token": outlook_365_token,

@@ -12,7 +12,7 @@ import logging
 import re
 import smtplib
 import ssl
-from datetime import date, datetime, timedelta
+from datetime import date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -95,6 +95,7 @@ def _build_summary_html(
     api_usage: dict,
 ) -> str:
     from jinja2 import Environment, FileSystemLoader
+
     template_dir = Path(__file__).parent.parent / "web" / "templates"
     env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=True)
     template = env.get_template("email_daily.html")
@@ -136,29 +137,50 @@ def _build_email_context(
 
     # Badge styles (inline — CSS classes not reliable across all email clients)
     _BADGE: dict[str, tuple[str, str]] = {
-        "bill":    ("Bill",          "background-color:#FFF3CD;color:#7A5C00;border:1px solid #F0C850;"),
-        "notice":  ("Notice",        "background-color:#E8F0FC;color:#1E4A8A;border:1px solid #C0D4F4;"),
-        "forward": ("Forward To Me", "background-color:#FCE8E8;color:#8A1A1A;border:1px solid #F4C0C0;"),
-        "overdue": ("Overdue Bill",  "background-color:#FCE8E8;color:#C62828;border:1px solid #F4C0C0;"),
-        "other":   ("Other",         "background-color:#F0F2F5;color:#5A7090;border:1px solid #D0D8E4;"),
+        "bill": ("Bill", "background-color:#FFF3CD;color:#7A5C00;border:1px solid #F0C850;"),
+        "notice": ("Notice", "background-color:#E8F0FC;color:#1E4A8A;border:1px solid #C0D4F4;"),
+        "forward": (
+            "Forward To Me",
+            "background-color:#FCE8E8;color:#8A1A1A;border:1px solid #F4C0C0;",
+        ),
+        "overdue": (
+            "Overdue Bill",
+            "background-color:#FCE8E8;color:#C62828;border:1px solid #F4C0C0;",
+        ),
+        "other": ("Other", "background-color:#F0F2F5;color:#5A7090;border:1px solid #D0D8E4;"),
     }
     _CAT_BADGE: dict[str, str] = {
-        "Bill": "bill", "Notice": "notice", "ForwardToMe": "forward",
-        "Personal": "other", "Junk": "other", "NeedsReview": "other",
+        "Bill": "bill",
+        "Notice": "notice",
+        "ForwardToMe": "forward",
+        "Personal": "other",
+        "Junk": "other",
+        "NeedsReview": "other",
     }
 
     # Action Required: ForwardToMe processed items + overdue pending bills
     action_items: list[dict] = []
     for item in items:
         if item.get("category") == "ForwardToMe":
-            parts = [p for p in [item.get("summary"), f"Received {item['processed_date']}" if item.get("processed_date") else None] if p]
+            parts = [
+                p
+                for p in [
+                    item.get("summary"),
+                    f"Received {item['processed_date']}" if item.get("processed_date") else None,
+                ]
+                if p
+            ]
             label, style = _BADGE["forward"]
-            action_items.append({
-                "badge_label": label, "badge_style": style, "urgent": True,
-                "sender": item.get("sender", "Unknown"),
-                "detail": " · ".join(parts),
-                "amount": None,
-            })
+            action_items.append(
+                {
+                    "badge_label": label,
+                    "badge_style": style,
+                    "urgent": True,
+                    "sender": item.get("sender", "Unknown"),
+                    "detail": " · ".join(parts),
+                    "amount": None,
+                }
+            )
 
     remaining_pending: list[dict] = []
     for bill in pending_bills:
@@ -166,12 +188,16 @@ def _build_email_context(
         if days is not None and days < 0:
             n = abs(days)
             label, style = _BADGE["overdue"]
-            action_items.append({
-                "badge_label": label, "badge_style": style, "urgent": False,
-                "sender": bill.get("sender", ""),
-                "detail": f"Due {bill.get('due_date', '')} — {n} day{'s' if n != 1 else ''} overdue",
-                "amount": bill.get("amount_due"),
-            })
+            action_items.append(
+                {
+                    "badge_label": label,
+                    "badge_style": style,
+                    "urgent": False,
+                    "sender": bill.get("sender", ""),
+                    "detail": f"Due {bill.get('due_date', '')} — {n} day{'s' if n != 1 else ''} overdue",
+                    "amount": bill.get("amount_due"),
+                }
+            )
         else:
             remaining_pending.append(bill)
 
@@ -183,7 +209,7 @@ def _build_email_context(
         badge_label, badge_style = _BADGE[badge_key]
 
         if cat == "Bill":
-            parts: list[str] = []
+            parts: list[str] = []  # type: ignore[no-redef]
             if item.get("processed_date"):
                 parts.append(f"Received {item['processed_date']}")
             days = _days_until(item.get("due_date", ""))
@@ -198,16 +224,26 @@ def _build_email_context(
                     parts.append(f"Due {item['due_date']} · {days} days remaining")
             detail = " · ".join(parts)
         else:
-            detail_parts = [p for p in [item.get("summary"), f"Received {item['processed_date']}" if item.get("processed_date") else None] if p]
+            detail_parts = [
+                p
+                for p in [
+                    item.get("summary"),
+                    f"Received {item['processed_date']}" if item.get("processed_date") else None,
+                ]
+                if p
+            ]
             detail = " · ".join(detail_parts)
 
-        new_items.append({
-            "badge_label": badge_label, "badge_style": badge_style,
-            "sender": item.get("sender", "Unknown"),
-            "detail": detail,
-            "amount": item.get("amount_due") if cat == "Bill" else None,
-            "amount_overdue": False,
-        })
+        new_items.append(
+            {
+                "badge_label": badge_label,
+                "badge_style": badge_style,
+                "sender": item.get("sender", "Unknown"),
+                "detail": detail,
+                "amount": item.get("amount_due") if cat == "Bill" else None,
+                "amount_overdue": False,
+            }
+        )
 
     # API usage summary line
     req_pct = 0
@@ -315,12 +351,12 @@ def send_bill_due_alert(
         urgency = "#C62828" if days_left <= 3 else "#E8A020"
         due_label = "Today" if days_left == 0 else f"in {days_left}d"
         rows += (
-            f'<tr>'
-            f'<td style="padding:8px 14px;color:#0F2044;">{bill.get("sender","")}</td>'
-            f'<td style="padding:8px 14px;color:#0F2044;">${bill.get("amount_due",0):.2f}</td>'
+            f"<tr>"
+            f'<td style="padding:8px 14px;color:#0F2044;">{bill.get("sender", "")}</td>'
+            f'<td style="padding:8px 14px;color:#0F2044;">${bill.get("amount_due", 0):.2f}</td>'
             f'<td style="padding:8px 14px;color:{urgency};font-weight:600;">'
-            f'{bill.get("due_date","")} ({due_label})</td>'
-            f'</tr>'
+            f"{bill.get('due_date', '')} ({due_label})</td>"
+            f"</tr>"
         )
 
     html = f"""
@@ -350,6 +386,7 @@ def send_bill_due_alert(
 
     if data_dir:
         from postmule.data import bills as _bills_data
+
         for _, bill in upcoming:
             if bill.get("id"):
                 _bills_data.mark_bill_alerted(data_dir, bill["id"])

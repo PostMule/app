@@ -19,7 +19,7 @@ class SheetsProvider:
     Google Sheets API provider.
 
     Args:
-        credentials:   google.oauth2.credentials.Credentials object (from build_google_credentials()).
+        credentials: google.oauth2.credentials.Credentials object (from build_google_credentials()).
         workbook_name: Name of the PostMule Sheets workbook.
     """
 
@@ -32,12 +32,14 @@ class SheetsProvider:
     def _get_service(self):
         if self._service is None:
             from googleapiclient.discovery import build  # type: ignore[import]
+
             self._service = build("sheets", "v4", credentials=self.credentials)
         return self._service
 
     def health_check(self):
         """Return a HealthResult indicating whether Sheets credentials are valid."""
         from postmule.providers import HealthResult
+
         try:
             self._get_service()  # triggers OAuth; raises if creds invalid
             return HealthResult(ok=True, status="ok", message="Sheets connected")
@@ -57,6 +59,7 @@ class SheetsProvider:
         # Try to find existing workbook via Drive search
         try:
             from googleapiclient.discovery import build  # type: ignore[import]
+
             drive_svc = build("drive", "v3", credentials=self.credentials)
             query = (
                 f"name='{self.workbook_name}' "
@@ -75,9 +78,16 @@ class SheetsProvider:
         # Create new workbook
         svc = self._get_service()
         sheet_names = [
-            "Bills", "Notices", "ForwardToMe", "Entities", "SenderDirectory",
-            "BankTransactions", "PendingEntityMatches", "PendingBillMatches",
-            "RunLog", "APIUsage",
+            "Bills",
+            "Notices",
+            "ForwardToMe",
+            "Entities",
+            "SenderDirectory",
+            "BankTransactions",
+            "PendingEntityMatches",
+            "PendingBillMatches",
+            "RunLog",
+            "APIUsage",
         ]
         body = {
             "properties": {"title": self.workbook_name},
@@ -117,7 +127,7 @@ class SheetsProvider:
             valueInputOption="USER_ENTERED",
             body={"values": rows},
         ).execute()
-        log.debug(f"Updated sheet '{sheet_name}': {len(rows)-1} data rows")
+        log.debug(f"Updated sheet '{sheet_name}': {len(rows) - 1} data rows")
 
     def append_row(self, sheet_name: str, row: list[Any]) -> None:
         """Append a single row to a sheet."""

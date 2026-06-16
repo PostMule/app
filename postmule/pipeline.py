@@ -117,6 +117,7 @@ def run_daily_pipeline(
                 recipients = cfg.alert_recipients
                 if smtp_cfg and recipients:
                     from postmule.agents.summary import send_pipeline_failure_alert
+
                     for addr in recipients:
                         send_pipeline_failure_alert(smtp_cfg, addr, [str(exc)])
             except Exception as alert_exc:
@@ -239,7 +240,7 @@ def run_daily_pipeline(
                     if not dry_run and ingested.drive_file_id:
                         dest_folder_id = providers.folder_ids.get(
                             _to_folder_key(result.destination_folder),
-                            providers.folder_ids.get("needs_review", "")
+                            providers.folder_ids.get("needs_review", ""),
                         )
                         if dest_folder_id and dest_folder_id != providers.folder_ids.get("inbox"):
                             moved_id = providers.drive.move_file(
@@ -255,27 +256,32 @@ def run_daily_pipeline(
 
                     # Store in JSON
                     if not dry_run:
-                        _store_processed_mail(data_dir, result, final_file_id,
-                                              ingested.received_date)
+                        _store_processed_mail(
+                            data_dir, result, final_file_id, ingested.received_date
+                        )
 
                     # Collect for daily summary
-                    classified_items.append({
-                        "category": result.category,
-                        "sender": result.sender,
-                        "recipients": result.recipients,
-                        "summary": result.summary,
-                        "amount_due": result.amount_due,
-                        "due_date": result.due_date,
-                        "processed_date": result.processed_date,
-                    })
+                    classified_items.append(
+                        {
+                            "category": result.category,
+                            "sender": result.sender,
+                            "recipients": result.recipients,
+                            "summary": result.summary,
+                            "amount_due": result.amount_due,
+                            "due_date": result.due_date,
+                            "processed_date": result.processed_date,
+                        }
+                    )
 
                     # Collect ForwardToMe for urgent alert
                     if result.category == "ForwardToMe":
-                        forward_to_me_found.append({
-                            "sender": result.sender,
-                            "summary": result.summary,
-                            "date_received": ingested.received_date,
-                        })
+                        forward_to_me_found.append(
+                            {
+                                "sender": result.sender,
+                                "summary": result.summary,
+                                "date_received": ingested.received_date,
+                            }
+                        )
 
                     # Collect names for batch entity discovery (run once after loop)
                     names = (result.recipients or []) + ([result.sender] if result.sender else [])
@@ -351,6 +357,7 @@ def run_daily_pipeline(
     if forward_to_me_found:
         try:
             from postmule.agents.summary import send_urgent_alert
+
             for _addr in _recipients:
                 send_urgent_alert(smtp_cfg, _addr, forward_to_me_found)
         except Exception as exc:
@@ -359,9 +366,11 @@ def run_daily_pipeline(
     bill_due_alert_days = int(cfg.get("notifications", "bill_due_alert_days") or 7)
     try:
         from postmule.agents.summary import send_bill_due_alert
+
         _cur_year = datetime.now(tz=timezone.utc).year
-        all_bills = (bills_data.load_bills(data_dir, _cur_year) +
-                     bills_data.load_bills(data_dir, _cur_year - 1))
+        all_bills = bills_data.load_bills(data_dir, _cur_year) + bills_data.load_bills(
+            data_dir, _cur_year - 1
+        )
         for _addr in _recipients:
             send_bill_due_alert(
                 smtp_cfg, _addr, all_bills, bill_due_alert_days, dry_run=dry_run, data_dir=data_dir
@@ -376,21 +385,23 @@ def run_daily_pipeline(
     stats["end_time"] = datetime.now(tz=timezone.utc).isoformat()
     try:
         from postmule.agents.summary import send_daily_summary
+
         _cur_year = datetime.now(tz=timezone.utc).year
-        _all_bills = (bills_data.load_bills(data_dir, _cur_year) +
-                      bills_data.load_bills(data_dir, _cur_year - 1))
+        _all_bills = bills_data.load_bills(data_dir, _cur_year) + bills_data.load_bills(
+            data_dir, _cur_year - 1
+        )
         pending_bills = [b for b in _all_bills if b.get("status") == "pending"]
         smtp_cfg = credentials.get("smtp", {})
         for _addr in _recipients:
-          send_daily_summary(
-            smtp_config=smtp_cfg,
-            alert_email=_addr,
-            run_stats=stats,
-            processed_items=classified_items,
-            pending_bills=pending_bills,
-            api_usage=providers.safety_agent.summary() if providers.safety_agent else {},
-            dry_run=dry_run,
-        )
+            send_daily_summary(
+                smtp_config=smtp_cfg,
+                alert_email=_addr,
+                run_stats=stats,
+                processed_items=classified_items,
+                pending_bills=pending_bills,
+                api_usage=providers.safety_agent.summary() if providers.safety_agent else {},
+                dry_run=dry_run,
+            )
     except Exception as exc:
         log.warning(f"Daily summary email failed: {exc}")
 
@@ -413,6 +424,7 @@ def run_daily_pipeline(
 # Private helpers
 # ------------------------------------------------------------------
 
+
 def _instantiate_email_provider(ep_cfg: dict, credentials: dict, get_google_creds) -> Any:
     """Instantiate an email provider from a config entry. Returns None if creds missing."""
     service = ep_cfg.get("service", "gmail")
@@ -422,6 +434,7 @@ def _instantiate_email_provider(ep_cfg: dict, credentials: dict, get_google_cred
 
     if service == "gmail":
         from postmule.providers.email.gmail import GmailProvider
+
         label = ep_cfg.get("label", "PostMule")
         return GmailProvider(get_google_creds(), label_name=label)
 
@@ -432,6 +445,7 @@ def _instantiate_email_provider(ep_cfg: dict, credentials: dict, get_google_cred
             log.warning(f"IMAP account {account_id!r} credentials not configured — skipping")
             return None
         from postmule.providers.email.imap import ImapProvider
+
         return ImapProvider(
             host=ep_cfg.get("host", ""),
             port=int(ep_cfg.get("port", 993)),
@@ -448,6 +462,7 @@ def _instantiate_email_provider(ep_cfg: dict, credentials: dict, get_google_cred
             log.warning(f"ProtonMail account {account_id!r} credentials not configured — skipping")
             return None
         from postmule.providers.email.proton import ProtonMailProvider
+
         return ProtonMailProvider(
             username=username,
             password=password,
@@ -462,6 +477,7 @@ def _instantiate_email_provider(ep_cfg: dict, credentials: dict, get_google_cred
             log.warning(f"Outlook 365 account {account_id!r} token not configured — skipping")
             return None
         from postmule.providers.email.outlook_365 import Outlook365Provider
+
         return Outlook365Provider(
             access_token=token,
             processed_category=ep_cfg.get("processed_category", "PostMule"),
@@ -473,6 +489,7 @@ def _instantiate_email_provider(ep_cfg: dict, credentials: dict, get_google_cred
             log.warning(f"Outlook.com account {account_id!r} token not configured — skipping")
             return None
         from postmule.providers.email.outlook_com import OutlookComProvider
+
         return OutlookComProvider(
             access_token=token,
             processed_category=ep_cfg.get("processed_category", "PostMule"),
@@ -497,6 +514,7 @@ def _build_providers(cfg: Config, credentials: dict, data_dir: Path):
     def _get_google_creds():
         if not _google_creds_cache:
             from postmule.core.credentials import build_google_credentials
+
             _google_creds_cache.append(build_google_credentials())
         return _google_creds_cache[0]
 
@@ -540,6 +558,7 @@ def _build_providers(cfg: Config, credentials: dict, data_dir: Path):
         vpm_password = vpm_creds.get("password", "")
         if vpm_username and vpm_password:
             from postmule.providers.mailbox.vpm import VpmProvider
+
             vpm = VpmProvider(vpm_username, vpm_password)
             log.info("VPM direct API provider configured")
         else:
@@ -563,11 +582,13 @@ def _build_storage_provider(cfg_entry: dict, credentials: dict, get_google_creds
 
     if service == "local":
         from postmule.providers.storage.local import LocalStorageProvider
+
         root_dir = cfg_entry.get("root_dir", str(default_install_dir() / "files"))
         return LocalStorageProvider(root_dir=root_dir)
 
     if service == "google_drive":
         from postmule.providers.storage.google_drive import DriveProvider
+
         return DriveProvider(
             get_google_creds(),
             root_folder=cfg_entry.get("root_folder", "PostMule"),
@@ -575,6 +596,7 @@ def _build_storage_provider(cfg_entry: dict, credentials: dict, get_google_creds
 
     if service == "s3":
         from postmule.providers.storage.s3 import S3Provider
+
         creds = credentials.get("s3", {})
         return S3Provider(
             aws_access_key_id=creds.get("access_key_id", ""),
@@ -585,11 +607,13 @@ def _build_storage_provider(cfg_entry: dict, credentials: dict, get_google_creds
 
     if service == "dropbox":
         from postmule.providers.storage.dropbox import DropboxProvider
+
         creds = credentials.get("dropbox", {})
         return DropboxProvider(access_token=creds.get("access_token", ""))
 
     if service == "onedrive":
         from postmule.providers.storage.onedrive import OneDriveProvider
+
         creds = credentials.get("onedrive", {})
         return OneDriveProvider(access_token=creds.get("access_token", ""))
 
@@ -607,15 +631,18 @@ def _build_spreadsheet_provider(
 
     if service == "sqlite":
         from postmule.providers.spreadsheet.sqlite import SqliteSpreadsheetProvider
+
         db_name = cfg_entry.get("db_name", "postmule.db")
         return SqliteSpreadsheetProvider(db_path=data_dir / db_name)
 
     if service == "none":
         from postmule.providers.spreadsheet.none import NoneSpreadsheetProvider
+
         return NoneSpreadsheetProvider()
 
     if service == "google_sheets":
         from postmule.providers.spreadsheet.google_sheets import SheetsProvider
+
         return SheetsProvider(
             get_google_creds(),
             workbook_name=cfg_entry.get("workbook_name", "PostMule"),
@@ -623,6 +650,7 @@ def _build_spreadsheet_provider(
 
     if service == "airtable":
         from postmule.providers.spreadsheet.airtable import AirtableProvider
+
         creds = credentials.get("airtable", {})
         return AirtableProvider(
             api_key=creds.get("api_key", ""),
@@ -631,6 +659,7 @@ def _build_spreadsheet_provider(
 
     if service == "excel_online":
         from postmule.providers.spreadsheet.excel_online import ExcelOnlineProvider
+
         creds = credentials.get("excel_online", {})
         return ExcelOnlineProvider(access_token=creds.get("access_token", ""))
 
@@ -647,6 +676,7 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
 
     if service == "gemini":
         from postmule.providers.llm.gemini import GeminiProvider
+
         return GeminiProvider(
             llm_creds.get("api_key", ""),
             safety_agent=safety_agent,
@@ -655,6 +685,7 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
 
     if service == "openai":
         from postmule.providers.llm.openai import OpenAIProvider
+
         return OpenAIProvider(
             api_key=llm_creds.get("api_key", ""),
             model=cfg_entry.get("model", "gpt-4o-mini"),
@@ -662,6 +693,7 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
 
     if service == "anthropic":
         from postmule.providers.llm.anthropic import AnthropicProvider
+
         return AnthropicProvider(
             api_key=llm_creds.get("api_key", ""),
             model=cfg_entry.get("model", "claude-haiku-4-5-20251001"),
@@ -669,6 +701,7 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
 
     if service == "ollama":
         from postmule.providers.llm.ollama import OllamaProvider
+
         return OllamaProvider(
             host=cfg_entry.get("host", "http://localhost:11434"),
             model=cfg_entry.get("model", "llama3.2"),
@@ -690,15 +723,18 @@ def _store_processed_mail(data_dir: Path, result, drive_file_id: str, received_d
         "filename": result.suggested_filename,
     }
     if result.category == "Bill":
-        bills_data.add_bill(data_dir, {
-            **base,
-            "amount_due": result.amount_due,
-            "due_date": result.due_date,
-            "account_number": result.account_number,
-            "statement_date": result.statement_date,
-            "ach_descriptor": result.ach_descriptor,
-            "status": "pending",
-        })
+        bills_data.add_bill(
+            data_dir,
+            {
+                **base,
+                "amount_due": result.amount_due,
+                "due_date": result.due_date,
+                "account_number": result.account_number,
+                "statement_date": result.statement_date,
+                "ach_descriptor": result.ach_descriptor,
+                "status": "pending",
+            },
+        )
     elif result.category == "Notice":
         notices_data.add_notice(data_dir, base)
     elif result.category == "ForwardToMe":
@@ -709,11 +745,13 @@ def _build_finance_provider(provider_type: str, cfg_entry: dict, credentials: di
     """Instantiate the configured finance provider. Returns None if type is unknown."""
     if provider_type == "simplifi":
         from postmule.providers.finance.simplifi import SimplifiProvider
+
         creds = credentials.get("simplifi", {})
         return SimplifiProvider(creds.get("username", ""), creds.get("password", ""))
 
     if provider_type == "ynab":
         from postmule.providers.finance.ynab import YnabProvider
+
         creds = credentials.get("ynab", {})
         return YnabProvider(
             access_token=creds.get("access_token", ""),
@@ -722,6 +760,7 @@ def _build_finance_provider(provider_type: str, cfg_entry: dict, credentials: di
 
     if provider_type == "plaid":
         from postmule.providers.finance.plaid import PlaidProvider
+
         creds = credentials.get("plaid", {})
         return PlaidProvider(
             client_id=creds.get("client_id", ""),
@@ -732,6 +771,7 @@ def _build_finance_provider(provider_type: str, cfg_entry: dict, credentials: di
 
     if provider_type == "monarch":
         from postmule.providers.finance.monarch import MonarchProvider
+
         creds = credentials.get("monarch", {})
         return MonarchProvider(creds.get("username", ""), creds.get("password", ""))
 
@@ -753,8 +793,10 @@ def _run_bill_matching(cfg: Config, credentials: dict, data_dir: Path, dry_run: 
         return
 
     from postmule.providers.finance.base import match_bills_to_transactions
+
     transactions = provider.get_recent_transactions(days=30)
     from datetime import date as _d
+
     _cy = _d.today().year
     _all = bills_data.load_bills(data_dir, _cy) + bills_data.load_bills(data_dir, _cy - 1)
     pending_bills = [b for b in _all if b.get("status") == "pending"]
@@ -762,7 +804,8 @@ def _run_bill_matching(cfg: Config, credentials: dict, data_dir: Path, dry_run: 
     amount_tolerance = float(bm_cfg.get("amount_tolerance_cents", 0)) / 100.0
     date_tolerance_days = int(bm_cfg.get("date_tolerance_days", 7))
     matches = match_bills_to_transactions(
-        pending_bills, transactions,
+        pending_bills,
+        transactions,
         amount_tolerance=amount_tolerance,
         date_tolerance_days=date_tolerance_days,
     )
@@ -774,6 +817,7 @@ def _run_bill_matching(cfg: Config, credentials: dict, data_dir: Path, dry_run: 
 def _save_bill_matches(data_dir: Path, matches: list) -> None:
     """Persist bill match candidates to pending/bill_matches.json for dashboard review."""
     import json
+
     pending_dir = data_dir / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
     path = pending_dir / "bill_matches.json"
@@ -810,6 +854,7 @@ def _update_sheets(sheets, data_dir: Path) -> None:
     from postmule.data import forward_to_me as fd
     from postmule.data import notices as nd
     from postmule.data import run_log as rl
+
     sheets.get_or_create_workbook()
     sheets.write_sheet("Bills", bd.to_sheet_rows(bd.load_bills(data_dir)))
     sheets.write_sheet("Notices", nd.to_sheet_rows(nd.load_notices(data_dir)))

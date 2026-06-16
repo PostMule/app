@@ -39,7 +39,7 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
-from postmule.providers.finance.base import BankTransaction, BillMatchResult
+from postmule.providers.finance.base import BankTransaction
 
 log = logging.getLogger("postmule.finance.plaid")
 
@@ -89,9 +89,7 @@ class PlaidProvider:
         try:
             import requests
         except ImportError:
-            raise RuntimeError(
-                "requests is not installed.\nRun: pip install requests"
-            )
+            raise RuntimeError("requests is not installed.\nRun: pip install requests")
 
         today = date.today()
         start_date = (today - timedelta(days=days)).isoformat()
@@ -111,14 +109,16 @@ class PlaidProvider:
         transactions = []
         for t in resp.json().get("transactions", []):
             # Plaid: positive amount = debit (spending). Negate to match PostMule convention.
-            transactions.append(BankTransaction(
-                transaction_id=t["transaction_id"],
-                date=t["date"],
-                amount=-t["amount"],
-                payee=t.get("name") or "",
-                account=t.get("account_id") or "",
-                memo=t.get("original_description") or "",
-            ))
+            transactions.append(
+                BankTransaction(
+                    transaction_id=t["transaction_id"],
+                    date=t["date"],
+                    amount=-t["amount"],
+                    payee=t.get("name") or "",
+                    account=t.get("account_id") or "",
+                    memo=t.get("original_description") or "",
+                )
+            )
 
         log.info(f"Fetched {len(transactions)} transactions from Plaid")
         return transactions

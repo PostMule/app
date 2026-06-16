@@ -9,7 +9,6 @@ from pathlib import Path
 
 from postmule.data._io import atomic_write
 
-
 _FEEDBACK_FILE = "feedback.json"
 
 

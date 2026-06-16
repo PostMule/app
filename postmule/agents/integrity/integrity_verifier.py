@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from postmule.data import bills as bills_data
-from postmule.data import notices as notices_data
 from postmule.data import forward_to_me as ftm_data
+from postmule.data import notices as notices_data
 
 log = logging.getLogger("postmule.integrity.integrity_verifier")
 
@@ -43,7 +43,13 @@ def run_integrity_check(
 
         try:
             drive_files = drive.list_folder(folder_id)
-            drive_count = len([f for f in drive_files if f.get("mimeType") != "application/vnd.google-apps.folder"])
+            drive_count = len(
+                [
+                    f
+                    for f in drive_files
+                    if f.get("mimeType") != "application/vnd.google-apps.folder"
+                ]
+            )
             json_count = len(json_records)
 
             ok = drive_count == json_count

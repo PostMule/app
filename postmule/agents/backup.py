@@ -27,7 +27,7 @@ from __future__ import annotations
 import io
 import logging
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,7 @@ _BACKUP_LOG_FILE = "backup_log.json"
 # ------------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------------
+
 
 def run_backup(
     cfg: Any,
@@ -72,7 +73,14 @@ def run_backup(
         drive = _build_drive(cfg, credentials)
     except Exception as exc:
         log.error(f"Backup: could not connect to storage — {exc}")
-        return {"status": "error", "error": str(exc), "backup_name": backup_name, "bytes_uploaded": 0, "files_included": [], "pruned_count": 0}
+        return {
+            "status": "error",
+            "error": str(exc),
+            "backup_name": backup_name,
+            "bytes_uploaded": 0,
+            "files_included": [],
+            "pruned_count": 0,
+        }
 
     try:
         backup_folder_id = _ensure_backup_folder(drive)
@@ -99,7 +107,14 @@ def run_backup(
         }
     except Exception as exc:
         log.error(f"Backup failed: {exc}", exc_info=True)
-        return {"status": "error", "error": str(exc), "backup_name": backup_name, "bytes_uploaded": 0, "files_included": [], "pruned_count": 0}
+        return {
+            "status": "error",
+            "error": str(exc),
+            "backup_name": backup_name,
+            "bytes_uploaded": 0,
+            "files_included": [],
+            "pruned_count": 0,
+        }
 
 
 def run_restore(
@@ -128,15 +143,29 @@ def run_restore(
         drive = _build_drive(cfg, credentials)
     except Exception as exc:
         log.error(f"Restore: could not connect to storage — {exc}")
-        return {"status": "error", "error": str(exc), "backup_name": backup_name, "files_restored": []}
+        return {
+            "status": "error",
+            "error": str(exc),
+            "backup_name": backup_name,
+            "files_restored": [],
+        }
 
     try:
         backup_folder_id = _ensure_backup_folder(drive)
         files = drive.list_folder(backup_folder_id)
-        backup_files = [f for f in files if f.get("name", "").startswith(_BACKUP_PREFIX) and f["name"].endswith(".zip")]
+        backup_files = [
+            f
+            for f in files
+            if f.get("name", "").startswith(_BACKUP_PREFIX) and f["name"].endswith(".zip")
+        ]
 
         if not backup_files:
-            return {"status": "error", "error": "No backups found in cloud storage.", "backup_name": backup_name, "files_restored": []}
+            return {
+                "status": "error",
+                "error": "No backups found in cloud storage.",
+                "backup_name": backup_name,
+                "files_restored": [],
+            }
 
         if backup_name == "latest":
             backup_files.sort(key=lambda f: f["name"], reverse=True)
@@ -145,7 +174,12 @@ def run_restore(
             target = next((f for f in backup_files if f["name"] == backup_name), None)
             if not target:
                 available = [f["name"] for f in backup_files]
-                return {"status": "error", "error": f"Backup '{backup_name}' not found. Available: {available}", "backup_name": backup_name, "files_restored": []}
+                return {
+                    "status": "error",
+                    "error": f"Backup '{backup_name}' not found. Available: {available}",
+                    "backup_name": backup_name,
+                    "files_restored": [],
+                }
 
         resolved_name = target["name"]
         log.info(f"Restore: downloading {resolved_name} ({target.get('size', '?')} bytes)")
@@ -165,7 +199,12 @@ def run_restore(
         }
     except Exception as exc:
         log.error(f"Restore failed: {exc}", exc_info=True)
-        return {"status": "error", "error": str(exc), "backup_name": backup_name, "files_restored": []}
+        return {
+            "status": "error",
+            "error": str(exc),
+            "backup_name": backup_name,
+            "files_restored": [],
+        }
 
 
 def list_backups(cfg: Any, credentials: dict) -> list[dict]:
@@ -189,11 +228,13 @@ def list_backups(cfg: Any, credentials: dict) -> list[dict]:
         if not (name.startswith(_BACKUP_PREFIX) and name.endswith(".zip")):
             continue
         date_str = name.removeprefix(_BACKUP_PREFIX).removesuffix(".zip")
-        result.append({
-            "name": name,
-            "date": date_str,
-            "size_bytes": int(f.get("size", 0)),
-        })
+        result.append(
+            {
+                "name": name,
+                "date": date_str,
+                "size_bytes": int(f.get("size", 0)),
+            }
+        )
 
     result.sort(key=lambda x: x["date"], reverse=True)
     return result
@@ -205,6 +246,7 @@ def get_last_backup(data_dir: Path) -> dict | None:
     if not log_path.exists():
         return None
     import json
+
     try:
         records = json.loads(log_path.read_text(encoding="utf-8"))
         if isinstance(records, list) and records:
@@ -217,6 +259,7 @@ def get_last_backup(data_dir: Path) -> dict | None:
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
 
 def _build_drive(cfg: Any, credentials: dict):
     """Build and return the configured storage provider (Drive)."""
@@ -276,7 +319,7 @@ def _extract_zip(zip_bytes: bytes, restore_dir: Path) -> list[str]:
         for member in zf.namelist():
             # data/ prefix → data_dir
             if member.startswith("data/"):
-                dest_rel = member[len("data/"):]
+                dest_rel = member[len("data/") :]
                 dest = restore_dir / dest_rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if not member.endswith("/"):
@@ -322,9 +365,12 @@ def _prune_old_backups(drive, backup_folder_id: str, retention_days: int) -> int
     return deleted
 
 
-def _update_backup_log(data_dir: Path, backup_name: str, timestamp: datetime, size_bytes: int, file_count: int) -> None:
+def _update_backup_log(
+    data_dir: Path, backup_name: str, timestamp: datetime, size_bytes: int, file_count: int
+) -> None:
     """Append a record to the local backup log."""
     import json
+
     from postmule.data._io import atomic_write
 
     log_path = data_dir / _BACKUP_LOG_FILE
@@ -335,12 +381,14 @@ def _update_backup_log(data_dir: Path, backup_name: str, timestamp: datetime, si
         except Exception:
             records = []
 
-    records.append({
-        "backup_name": backup_name,
-        "timestamp": timestamp.isoformat(),
-        "size_bytes": size_bytes,
-        "file_count": file_count,
-    })
+    records.append(
+        {
+            "backup_name": backup_name,
+            "timestamp": timestamp.isoformat(),
+            "size_bytes": size_bytes,
+            "file_count": file_count,
+        }
+    )
 
     # Keep only the last 365 records
     records = records[-365:]

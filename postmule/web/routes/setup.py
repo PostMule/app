@@ -32,6 +32,7 @@ def _current_step() -> int:
 def require_setup_completion():
     """Redirect every page to the setup wizard until credentials.enc exists."""
     from flask import current_app
+
     if current_app.config.get("TESTING"):
         return
     if not _app._setup_required():
@@ -139,20 +140,21 @@ def test_gmail():
         conn.login(address, password)
         conn.logout()
         return jsonify({"ok": True, "error": None})
-    except imaplib.IMAP4.error as exc:
-        msg = str(exc)
-        if b"AUTHENTICATIONFAILED" in exc.args[0] if exc.args else False:
-            msg = "Authentication failed."
-        return jsonify({
-            "ok": False,
-            "error": "Login failed — check your Gmail address and App Password. "
-                     "Make sure 2-Step Verification is on and you created the App Password for 'Other (PostMule)'.",
-        })
+    except imaplib.IMAP4.error:
+        return jsonify(
+            {
+                "ok": False,
+                "error": "Login failed — check your Gmail address and App Password. "
+                "Make sure 2-Step Verification is on and you created the App Password for 'Other (PostMule)'.",  # noqa: E501
+            }
+        )
     except (OSError, socket.timeout, TimeoutError):
-        return jsonify({
-            "ok": False,
-            "error": "Could not reach imap.gmail.com. Check your internet connection.",
-        })
+        return jsonify(
+            {
+                "ok": False,
+                "error": "Could not reach imap.gmail.com. Check your internet connection.",
+            }
+        )
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Unexpected error: {exc}"})
 
@@ -161,6 +163,7 @@ def _probe_gemini_key(api_key: str) -> tuple[bool, str | None]:
     """Try to list Gemini models with api_key. Returns (ok, error_message)."""
     try:
         import google.generativeai as genai  # type: ignore[import]
+
         genai.configure(api_key=api_key)
         list(genai.list_models())
         return True, None
@@ -191,7 +194,6 @@ def test_gemini():
 @setup_bp.route("/setup/finish", methods=["POST", "GET"])
 def finish():
     """Write config.yaml and credentials.enc, then redirect to the dashboard."""
-    import secrets
 
     import yaml
 

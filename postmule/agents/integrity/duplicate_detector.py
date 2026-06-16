@@ -7,7 +7,6 @@ Moves duplicates to the /Duplicates folder.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -96,7 +95,7 @@ def find_duplicates_in_folder(
 
 
 def run_duplicate_detection(
-    drive,           # DriveProvider
+    drive,  # DriveProvider
     folder_ids: dict[str, str],
     data_dir: Path,
     dry_run: bool = False,
@@ -108,7 +107,8 @@ def run_duplicate_detection(
         Summary dict with counts.
     """
     scan_folders = {
-        k: v for k, v in folder_ids.items()
+        k: v
+        for k, v in folder_ids.items()
         if k not in ("root", "system", "data", "duplicates", "archive")
     }
 

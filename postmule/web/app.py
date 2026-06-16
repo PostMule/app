@@ -31,7 +31,6 @@ Routes:
 from __future__ import annotations
 
 import hashlib
-import hmac
 import logging
 import os
 import threading
@@ -40,7 +39,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import yaml
-
 from flask import Flask
 
 from postmule.core.config import ConfigError, load_config
@@ -104,7 +102,8 @@ def create_app(
     # Guard prevents double-registration when create_app() is called multiple times
     # (e.g., in tests).
     if "auth" not in app.blueprints:
-        from postmule.web.routes import auth_bp, pages_bp, connections_bp, api_bp, setup_bp
+        from postmule.web.routes import api_bp, auth_bp, connections_bp, pages_bp, setup_bp
+
         app.register_blueprint(auth_bp)
         app.register_blueprint(setup_bp)
         app.register_blueprint(pages_bp)
@@ -117,6 +116,7 @@ def create_app(
 # ------------------------------------------------------------------
 # Authentication helpers
 # ------------------------------------------------------------------
+
 
 def _setup_required() -> bool:
     """Return True if credentials.enc is missing or empty — first-run state."""

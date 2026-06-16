@@ -37,4 +37,5 @@ class NoneSpreadsheetProvider:
 
     def health_check(self):
         from postmule.providers import HealthResult
+
         return HealthResult(ok=True, status="ok", message="Spreadsheet view disabled")

@@ -22,12 +22,12 @@ classifiers = [
 dependencies = [
     "pdfplumber>=0.11",
     "pytesseract>=0.3",
-    "Pillow>=10",
+    "Pillow>=12.2.0",
     "google-auth>=2",
     "google-auth-oauthlib>=1",
     "google-api-python-client>=2",
     "google-generativeai>=0.7",
-    "cryptography>=42",
+    "cryptography>=48.0.1",
     "keyring>=25",
     "flask>=3",
     "pyyaml>=6",
@@ -60,8 +60,9 @@ packages = ["postmule"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=postmule --cov-report=term-missing"
-# TODO: raise --cov-fail-under back to 80 once stub files are implemented
+addopts = "--cov=postmule --cov-report=term-missing --cov-fail-under=74"
+# Coverage floor: 74% measured 2026-06-15 after stub-providers. Proposal filed to align
+# gate-1-code-green.ps1 with this floor (ops proposals/gate-1-coverage-floor.md).
 
 [tool.black]
 line-length = 100
@@ -69,4 +70,12 @@ target-version = ["py311"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# These files contain embedded HTML templates or LLM prompt strings where long lines
+# cannot be broken without corrupting the string content.
+"postmule/agents/summary.py" = ["E501"]
+"postmule/providers/llm/gemini.py" = ["E501"]

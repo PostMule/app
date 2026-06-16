@@ -103,6 +103,7 @@ class OllamaProvider:
         2. The configured model is available (pulled).
         """
         from postmule.providers import HealthResult
+
         try:
             import requests  # type: ignore[import]
         except ImportError:
@@ -164,10 +165,7 @@ class OllamaProvider:
         try:
             import requests  # type: ignore[import]
         except ImportError:
-            raise RuntimeError(
-                "requests is not installed.\n"
-                "Run: pip install requests"
-            )
+            raise RuntimeError("requests is not installed.\nRun: pip install requests")
 
         names_str = ", ".join(known_names) if known_names else "unknown"
         prompt = _CLASSIFY_PROMPT.format(

@@ -27,5 +27,6 @@ class EmailNotifier:
 
     def send(self, to: str, subject: str, html: str) -> None:
         from postmule.agents.summary import _send_email
+
         _send_email(self.smtp_config, to, subject, html)
         log.info(f"Sent email to {to}: {subject}")

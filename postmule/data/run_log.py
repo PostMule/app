@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -60,24 +59,35 @@ def get_last_run(data_dir: Path) -> dict[str, Any] | None:
 
 def to_sheet_rows(run_log: list[dict[str, Any]]) -> list[list[Any]]:
     headers = [
-        "Run ID", "Start Time", "End Time", "Status",
-        "Emails Found", "PDFs Processed", "Bills", "Notices",
-        "ForwardToMe", "Junk", "NeedsReview", "Errors",
+        "Run ID",
+        "Start Time",
+        "End Time",
+        "Status",
+        "Emails Found",
+        "PDFs Processed",
+        "Bills",
+        "Notices",
+        "ForwardToMe",
+        "Junk",
+        "NeedsReview",
+        "Errors",
     ]
     rows = [headers]
     for r in reversed(run_log):  # most recent first
-        rows.append([
-            r.get("run_id", ""),
-            r.get("start_time", ""),
-            r.get("end_time", ""),
-            r.get("status", ""),
-            r.get("emails_found", 0),
-            r.get("pdfs_processed", 0),
-            r.get("bills", 0),
-            r.get("notices", 0),
-            r.get("forward_to_me", 0),
-            r.get("junk", 0),
-            r.get("needs_review", 0),
-            "; ".join(r.get("errors", [])),
-        ])
+        rows.append(
+            [
+                r.get("run_id", ""),
+                r.get("start_time", ""),
+                r.get("end_time", ""),
+                r.get("status", ""),
+                r.get("emails_found", 0),
+                r.get("pdfs_processed", 0),
+                r.get("bills", 0),
+                r.get("notices", 0),
+                r.get("forward_to_me", 0),
+                r.get("junk", 0),
+                r.get("needs_review", 0),
+                "; ".join(r.get("errors", [])),
+            ]
+        )
     return rows

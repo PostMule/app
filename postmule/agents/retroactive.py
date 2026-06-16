@@ -14,10 +14,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from postmule.agents.classification import classify_pdf, CATEGORY_FOLDERS
+from postmule.agents.classification import CATEGORY_FOLDERS, classify_pdf
 from postmule.data import bills as bills_data
-from postmule.data import notices as notices_data
 from postmule.data import forward_to_me as ftm_data
+from postmule.data import notices as notices_data
 
 log = logging.getLogger("postmule.agents.retroactive")
 
@@ -27,8 +27,8 @@ _RATE_LIMIT_SECONDS = 5.0
 
 def run_retroactive(
     pdf_paths: list[Path],
-    llm,                    # GeminiProvider
-    drive,                  # DriveProvider
+    llm,  # GeminiProvider
+    drive,  # DriveProvider
     folder_ids: dict[str, str],
     data_dir: Path,
     known_names: list[str] | None = None,
@@ -69,9 +69,6 @@ def run_retroactive(
 
     for i, pdf_path in enumerate(pdf_paths, 1):
         log.info(f"[{i}/{len(pdf_paths)}] {pdf_path.name}")
-
-        # Use parent folder name as classification hint
-        folder_hint = pdf_path.parent.name
 
         try:
             result = classify_pdf(
@@ -142,13 +139,16 @@ def _store_record(data_dir: Path, result, drive_id: str) -> None:
     }
 
     if result.category == "Bill":
-        bills_data.add_bill(data_dir, {
-            **base,
-            "amount_due": result.amount_due,
-            "due_date": result.due_date,
-            "account_number": result.account_number,
-            "status": "pending",
-        })
+        bills_data.add_bill(
+            data_dir,
+            {
+                **base,
+                "amount_due": result.amount_due,
+                "due_date": result.due_date,
+                "account_number": result.account_number,
+                "status": "pending",
+            },
+        )
     elif result.category == "Notice":
         notices_data.add_notice(data_dir, base)
     elif result.category == "ForwardToMe":

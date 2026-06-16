@@ -16,12 +16,9 @@ Human-readable error format:
 
 from __future__ import annotations
 
-import glob
 import logging
-import os
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
 
 # Module-level logger for PostMule internals
 log = logging.getLogger("postmule")
@@ -30,6 +27,7 @@ log = logging.getLogger("postmule")
 # ------------------------------------------------------------------
 # Setup entry point
 # ------------------------------------------------------------------
+
 
 def setup_logging(
     log_dir: Path,
@@ -80,7 +78,9 @@ def setup_logging(
     proc_path = processing_dir / f"{year_str}.log"
     proc_handler = logging.FileHandler(proc_path, encoding="utf-8")
     proc_handler.setLevel(logging.INFO)
-    proc_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S"))
+    proc_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S")
+    )
     proc_logger.handlers.clear()
     proc_logger.addHandler(proc_handler)
 
@@ -99,6 +99,7 @@ def log_run_result(status: str, summary: str) -> None:
 # Formatters
 # ------------------------------------------------------------------
 
+
 def _verbose_formatter() -> logging.Formatter:
     return logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(name)s: %(message)s",
@@ -113,6 +114,7 @@ def _console_formatter() -> logging.Formatter:
 # ------------------------------------------------------------------
 # Pruning
 # ------------------------------------------------------------------
+
 
 def _prune_verbose_logs(verbose_dir: Path, keep_days: int) -> None:
     cutoff = date.today() - timedelta(days=keep_days)

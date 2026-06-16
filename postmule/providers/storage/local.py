@@ -78,6 +78,7 @@ class LocalStorageProvider:
 
     def health_check(self):
         from postmule.providers import HealthResult
+
         try:
             self.root_dir.mkdir(parents=True, exist_ok=True)
             probe = self.root_dir / ".postmule_health"
@@ -183,11 +184,7 @@ class LocalStorageProvider:
         folder = Path(folder_id)
         if not folder.exists():
             return []
-        return [
-            {"id": str(f), "name": f.name}
-            for f in sorted(folder.iterdir())
-            if f.is_file()
-        ]
+        return [{"id": str(f), "name": f.name} for f in sorted(folder.iterdir()) if f.is_file()]
 
     def delete_file(self, file_id: str) -> None:
         """

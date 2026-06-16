@@ -44,8 +44,7 @@ def check_run_completed(data_dir: Path, max_hours_late: int = 4) -> dict:
         return {
             "ok": False,
             "message": (
-                f"Last run (ID {last.get('run_id', '?')}) "
-                "has no end_time — it may have crashed."
+                f"Last run (ID {last.get('run_id', '?')}) has no end_time — it may have crashed."
             ),
         }
 
@@ -63,8 +62,7 @@ def check_run_completed(data_dir: Path, max_hours_late: int = 4) -> dict:
         return {
             "ok": False,
             "message": (
-                f"Last run FAILED at {end_time_str}.\n"
-                f"Errors: {'; '.join(last.get('errors', []))}"
+                f"Last run FAILED at {end_time_str}.\nErrors: {'; '.join(last.get('errors', []))}"
             ),
         }
 

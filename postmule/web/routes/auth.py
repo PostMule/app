@@ -15,6 +15,7 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.app_context_processor
 def inject_auth_state():
     from flask import session as _session
+
     pw = _app._dashboard_password()
     return {
         "auth_enabled": bool(pw),

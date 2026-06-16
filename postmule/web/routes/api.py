@@ -12,20 +12,18 @@ from datetime import date
 from typing import Any
 
 import yaml
-
 from flask import Blueprint, Response, jsonify, redirect, request, url_for
 
+import postmule.web.app as _app
 from postmule.core.config import load_config
 from postmule.data import bills as bills_data
-from postmule.data import search as search_data
-from postmule.data import entity_corrections as corrections_data
 from postmule.data import entities as entity_data
+from postmule.data import entity_corrections as corrections_data
 from postmule.data import forward_to_me as ftm_data
 from postmule.data import notices as notices_data
 from postmule.data import owners as owners_data
+from postmule.data import search as search_data
 from postmule.data import tags as tags_data
-
-import postmule.web.app as _app
 
 log = logging.getLogger("postmule.web")
 
@@ -91,6 +89,7 @@ def api_run():
     def _run():
         from postmule.core.credentials import CredentialsError, load_credentials
         from postmule.pipeline import run_daily_pipeline
+
         try:
             creds = load_credentials(_app._enc_path)
             run_daily_pipeline(_app._config, creds, _app._data_dir, dry_run=dry_run)
@@ -244,7 +243,9 @@ def api_settings():
         "finance": {
             "providers": [
                 _finance_provider("ynab"),
-                _finance_provider("plaid", {"environment": form.get("finance_plaid_env", "development")}),
+                _finance_provider(
+                    "plaid", {"environment": form.get("finance_plaid_env", "development")}
+                ),
                 _finance_provider("simplifi"),
                 _finance_provider("monarch"),
             ],
@@ -314,13 +315,18 @@ def api_entity_update(entity_id: str):
             return "friendly_name cannot be empty", 400
         entities = entity_data.load_entities(_app._data_dir)
         if not entity_data.validate_friendly_name_unique(entities, friendly, exclude_id=entity_id):
-            return jsonify({"error": "friendly_name_taken",
-                            "message": f"'{friendly}' is already used by another entity."}), 409
+            return jsonify(
+                {
+                    "error": "friendly_name_taken",
+                    "message": f"'{friendly}' is already used by another entity.",
+                }
+            ), 409
         parsed_value: Any = friendly
     elif field == "address":
         parsed_value = {
             k.removeprefix("address_"): request.form.get(k, "") or None
-            for k in request.form if k.startswith("address_")
+            for k in request.form
+            if k.startswith("address_")
         }
     else:
         parsed_value = value or None
@@ -343,6 +349,7 @@ def api_mail_entity_override(mail_id: str):
     mail_item = None
     mail_type = None
     from postmule.data._io import recent_years
+
     for year in recent_years():
         for bill in bills_data.load_bills(_app._data_dir, year):
             if bill.get("id") == mail_id:
@@ -407,6 +414,7 @@ def api_mail_entity_override(mail_id: str):
 def _find_mail_type(mail_id: str, data_dir) -> str | None:
     """Return 'bill', 'notice', or 'ftm' for the given mail_id, or None if not found."""
     from postmule.data._io import recent_years
+
     for year in recent_years():
         for bill in bills_data.load_bills(data_dir, year):
             if bill.get("id") == mail_id:
@@ -435,7 +443,7 @@ def _set_filed(mail_id: str, data_dir, filed: bool) -> bool:
 @api_bp.route("/api/mail/<mail_id>/file", methods=["POST"])
 def api_mail_file(mail_id: str):
     """Mark a mail item as filed (hidden from main mail view)."""
-    if _app._config and _app._config.get("app", {}).get("dry_run"):
+    if _app._config and _app._config.get("app", "dry_run"):
         return jsonify({"ok": True, "dry_run": True})
     if _set_filed(mail_id, _app._data_dir, True):
         return ("", 200)
@@ -445,7 +453,7 @@ def api_mail_file(mail_id: str):
 @api_bp.route("/api/mail/<mail_id>/unfile", methods=["POST"])
 def api_mail_unfile(mail_id: str):
     """Return a filed mail item to Open (visible in main mail view)."""
-    if _app._config and _app._config.get("app", {}).get("dry_run"):
+    if _app._config and _app._config.get("app", "dry_run"):
         return jsonify({"ok": True, "dry_run": True})
     if _set_filed(mail_id, _app._data_dir, False):
         return ("", 200)
@@ -458,14 +466,17 @@ _VALID_CATEGORIES = {"Bill", "Notice", "ForwardToMe", "Personal", "Junk", "Needs
 @api_bp.route("/api/mail/<mail_id>/category", methods=["POST"])
 def api_mail_category(mail_id: str):
     """Override the category (type) of a mail item."""
-    if _app._config and _app._config.get("app", {}).get("dry_run"):
+    if _app._config and _app._config.get("app", "dry_run"):
         return jsonify({"ok": True, "dry_run": True})
 
     category = request.form.get("category", "").strip()
     if category not in _VALID_CATEGORIES:
-        return jsonify({"error": f"Invalid category; must be one of {sorted(_VALID_CATEGORIES)}"}), 400
+        return jsonify(
+            {"error": f"Invalid category; must be one of {sorted(_VALID_CATEGORIES)}"}
+        ), 400
 
     from postmule.data._io import recent_years
+
     for year in recent_years():
         for bill in bills_data.load_bills(_app._data_dir, year):
             if bill.get("id") == mail_id:
@@ -517,29 +528,37 @@ def _get_storage_provider():
     svc = (cfg.get("storage", {}).get("providers") or [{}])[0].get("service", "google_drive")
     if svc == "google_drive":
         from postmule.core.credentials import build_google_credentials, google_credentials_available
+
         if not google_credentials_available():
             raise RuntimeError("Google credentials not configured")
         creds = build_google_credentials()
         root = (cfg.get("storage", {}).get("providers") or [{}])[0].get("root_folder", "PostMule")
         from postmule.providers.storage.google_drive import DriveProvider
+
         return DriveProvider(creds, root_folder=root)
     if svc == "dropbox":
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
         token = creds.get("dropbox", {}).get("access_token", "")
         from postmule.providers.storage.dropbox import DropboxProvider
+
         return DropboxProvider(token)
     if svc == "onedrive":
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
         token = creds.get("onedrive", {}).get("access_token", "")
         from postmule.providers.storage.onedrive import OneDriveProvider
+
         return OneDriveProvider(token)
     if svc == "s3":
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
         s3_cfg = (cfg.get("storage", {}).get("providers") or [{}])[0]
         from postmule.providers.storage.s3 import S3Provider
+
         return S3Provider(
             aws_access_key_id=creds.get("s3", {}).get("access_key_id", ""),
             aws_secret_access_key=creds.get("s3", {}).get("secret_access_key", ""),
@@ -590,7 +609,9 @@ def api_reports_export():
             if fname in seen_names:
                 seen_names[fname] += 1
                 base, ext = fname.rsplit(".", 1) if "." in fname else (fname, "")
-                fname = f"{base}_{seen_names[fname]}.{ext}" if ext else f"{base}_{seen_names[fname]}"
+                fname = (
+                    f"{base}_{seen_names[fname]}.{ext}" if ext else f"{base}_{seen_names[fname]}"
+                )
             else:
                 seen_names[fname] = 0
             try:
@@ -629,10 +650,16 @@ def api_entity_save(entity_id: str):
 
     friendly = request.form.get("friendly_name", "").strip()
     if not friendly:
-        return jsonify({"error": "empty_friendly_name", "message": "Friendly name cannot be empty."}), 400
+        return jsonify(
+            {"error": "empty_friendly_name", "message": "Friendly name cannot be empty."}
+        ), 400
     if not entity_data.validate_friendly_name_unique(entities, friendly, exclude_id=entity_id):
-        return jsonify({"error": "friendly_name_taken",
-                        "message": f"'{friendly}' is already used by another entity."}), 409
+        return jsonify(
+            {
+                "error": "friendly_name_taken",
+                "message": f"'{friendly}' is already used by another entity.",
+            }
+        ), 409
 
     entity["friendly_name"] = friendly
     for field in ("account_number", "category", "phone", "website", "payment_address"):
@@ -663,15 +690,27 @@ def api_entity_create():
 
     entities = entity_data.load_entities(_app._data_dir)
     if not entity_data.validate_friendly_name_unique(entities, friendly_name):
-        return jsonify({"error": "friendly_name_taken",
-                        "message": f"'{friendly_name}' is already used by another entity."}), 409
+        return jsonify(
+            {
+                "error": "friendly_name_taken",
+                "message": f"'{friendly_name}' is already used by another entity.",
+            }
+        ), 409
 
     entity = entity_data.add_entity(
-        _app._data_dir, name, category,
-        friendly_name=friendly_name, account_number=account_number,
+        _app._data_dir,
+        name,
+        category,
+        friendly_name=friendly_name,
+        account_number=account_number,
     )
-    return jsonify({"id": entity["id"], "canonical_name": entity["canonical_name"],
-                    "friendly_name": entity["friendly_name"]})
+    return jsonify(
+        {
+            "id": entity["id"],
+            "canonical_name": entity["canonical_name"],
+            "friendly_name": entity["friendly_name"],
+        }
+    )
 
 
 @api_bp.route("/api/entity/<entity_id>/alias", methods=["POST"])
@@ -793,8 +832,9 @@ def api_export():
         payload["entities"] = entity_data.load_entities(_app._data_dir)
 
     if fmt == "json":
-        body = json.dumps(payload if data_type == "all" else list(payload.values())[0],
-                          indent=2, default=str)
+        body = json.dumps(
+            payload if data_type == "all" else list(payload.values())[0], indent=2, default=str
+        )
         filename = f"postmule_{data_type}.json"
         return Response(
             body,
@@ -811,8 +851,9 @@ def api_export():
         writer = csv.DictWriter(buf, fieldnames=list(records[0].keys()), extrasaction="ignore")
         writer.writeheader()
         for rec in records:
-            writer.writerow({k: (", ".join(v) if isinstance(v, list) else v)
-                             for k, v in rec.items()})
+            writer.writerow(
+                {k: (", ".join(v) if isinstance(v, list) else v) for k, v in rec.items()}
+            )
     else:
         buf.write("")
 
@@ -831,17 +872,25 @@ def api_export_config():
     Safe to share — no API keys, passwords, or personal data in the output.
     """
     import copy
+
     cfg = copy.deepcopy(_app._config_raw)
 
     _REDACT_KEYS = {
-        "api_key", "password", "token", "secret", "access_token", "client_secret",
-        "username", "address", "alert_email", "alert_email_secondary",
+        "api_key",
+        "password",
+        "token",
+        "secret",
+        "access_token",
+        "client_secret",
+        "username",
+        "address",
+        "alert_email",
+        "alert_email_secondary",
     }
 
     def _redact(obj: Any) -> Any:
         if isinstance(obj, dict):
-            return {k: ("[REDACTED]" if k in _REDACT_KEYS else _redact(v))
-                    for k, v in obj.items()}
+            return {k: ("[REDACTED]" if k in _REDACT_KEYS else _redact(v)) for k, v in obj.items()}
         if isinstance(obj, list):
             return [_redact(i) for i in obj]
         return obj
@@ -862,10 +911,11 @@ def api_export_config():
 
 @api_bp.route("/api/export/connections-summary", methods=["GET"])
 def api_export_connections_summary():
-    """Export a plain-text reinstall checklist of all configured providers and required credentials."""
+    """Export a plain-text reinstall checklist of all configured providers
+    and required credentials."""
     from postmule.web.routes.pages import _connection_status
+
     conn = _connection_status()
-    cfg = _app._config_raw
 
     lines: list[str] = [
         "PostMule — Connections & Credentials Reinstall Summary",
@@ -884,44 +934,59 @@ def api_export_connections_summary():
 
     # Google / OAuth
     google_status = "Connected" if conn.get("google") else "NOT CONNECTED"
-    _section("Google OAuth", [
-        f"Status: {google_status}",
-        "Required: Google OAuth token (re-run 'postmule --setup' or visit Connections page)",
-    ])
+    _section(
+        "Google OAuth",
+        [
+            f"Status: {google_status}",
+            "Required: Google OAuth token (re-run 'postmule --setup' or visit Connections page)",
+        ],
+    )
 
     # Mailbox
     mbox = conn.get("mailbox", {})
     mbox_type = mbox.get("type", "not configured")
-    _section("Physical Mailbox Provider", [
-        f"Type: {mbox_type}",
-        f"Status: {'Connected' if mbox.get('creds_ok') else 'NOT CONNECTED'}",
-        "Required credentials: username, password (stored in credentials.enc)",
-    ])
+    _section(
+        "Physical Mailbox Provider",
+        [
+            f"Type: {mbox_type}",
+            f"Status: {'Connected' if mbox.get('creds_ok') else 'NOT CONNECTED'}",
+            "Required credentials: username, password (stored in credentials.enc)",
+        ],
+    )
 
     # Email
     email = conn.get("email", {})
-    _section("Email Provider", [
-        f"Type: {email.get('type', 'not configured')}",
-        f"Address: {email.get('address', 'not set')}",
-        f"Status: {'Enabled' if email.get('enabled') else 'Not configured'}",
-        "Required: Gmail/IMAP credentials or OAuth token",
-    ])
+    _section(
+        "Email Provider",
+        [
+            f"Type: {email.get('type', 'not configured')}",
+            f"Address: {email.get('address', 'not set')}",
+            f"Status: {'Enabled' if email.get('enabled') else 'Not configured'}",
+            "Required: Gmail/IMAP credentials or OAuth token",
+        ],
+    )
 
     # Storage
     storage = conn.get("storage", {})
-    _section("File Storage", [
-        f"Type: {storage.get('type', 'not configured')}",
-        f"Root folder: {storage.get('root_folder', 'not set')}",
-        "Required: Google OAuth (for Drive) or provider-specific API key",
-    ])
+    _section(
+        "File Storage",
+        [
+            f"Type: {storage.get('type', 'not configured')}",
+            f"Root folder: {storage.get('root_folder', 'not set')}",
+            "Required: Google OAuth (for Drive) or provider-specific API key",
+        ],
+    )
 
     # Spreadsheet
     sheet = conn.get("spreadsheet", {})
-    _section("Spreadsheet", [
-        f"Type: {sheet.get('type', 'not configured')}",
-        f"Workbook: {sheet.get('workbook_name', 'not set')}",
-        "Required: Google OAuth (for Sheets) or provider-specific credentials",
-    ])
+    _section(
+        "Spreadsheet",
+        [
+            f"Type: {sheet.get('type', 'not configured')}",
+            f"Workbook: {sheet.get('workbook_name', 'not set')}",
+            "Required: Google OAuth (for Sheets) or provider-specific credentials",
+        ],
+    )
 
     # LLM
     llm = conn.get("llm", {})
@@ -931,11 +996,14 @@ def api_export_connections_summary():
         "openai": "openai.api_key",
         "gemini": "gemini.api_key",
     }
-    _section("AI / LLM Provider", [
-        f"Type: {llm_type}",
-        f"Model: {llm.get('model', 'not set')}",
-        f"Required credential: {key_fields.get(llm_type, 'provider API key')}",
-    ])
+    _section(
+        "AI / LLM Provider",
+        [
+            f"Type: {llm_type}",
+            f"Model: {llm.get('model', 'not set')}",
+            f"Required credential: {key_fields.get(llm_type, 'provider API key')}",
+        ],
+    )
 
     # Finance
     finance = conn.get("finance", {})
@@ -946,19 +1014,25 @@ def api_export_connections_summary():
         "simplifi": ["simplifi.username", "simplifi.password"],
         "monarch": ["monarch.username", "monarch.password"],
     }
-    _section("Finance Provider", [
-        f"Type: {finance_type}",
-        f"Status: {'Connected' if finance.get('ynab_ok') else 'Check credentials'}",
-        f"Required credentials: {', '.join(finance_creds.get(finance_type, ['provider credentials']))}",
-    ])
+    _section(
+        "Finance Provider",
+        [
+            f"Type: {finance_type}",
+            f"Status: {'Connected' if finance.get('ynab_ok') else 'Check credentials'}",
+            f"Required credentials: {', '.join(finance_creds.get(finance_type, ['provider credentials']))}",  # noqa: E501
+        ],
+    )
 
     # Notifications
     notif = conn.get("notifications", {})
-    _section("Notifications", [
-        f"Alert email: {notif.get('alert_email', 'not set')}",
-        f"Secondary email: {notif.get('alert_email_secondary', 'not set')}",
-        "Required: re-enter alert_email in config.yaml after reinstall",
-    ])
+    _section(
+        "Notifications",
+        [
+            f"Alert email: {notif.get('alert_email', 'not set')}",
+            f"Secondary email: {notif.get('alert_email_secondary', 'not set')}",
+            "Required: re-enter alert_email in config.yaml after reinstall",
+        ],
+    )
 
     lines.append("---")
     lines.append("Generated by PostMule. For support: https://github.com/PostMule/app")
@@ -974,6 +1048,7 @@ def api_export_connections_summary():
 # ------------------------------------------------------------------
 # Connections page — credential save + provider switch
 # ------------------------------------------------------------------
+
 
 @api_bp.route("/api/credential", methods=["POST"])
 def api_save_credential():
@@ -997,6 +1072,7 @@ def api_save_credential():
 
     try:
         from postmule.core.credentials import save_credential
+
         save_credential(_app._enc_path, provider, field, value)
     except Exception as exc:
         log.warning("Failed to save credential %s.%s: %s", provider, field, exc)
@@ -1063,9 +1139,10 @@ def api_connection_provider():
 @api_bp.route("/api/feedback", methods=["POST"])
 def api_feedback():
     """Save in-app feedback locally and optionally submit as a GitHub issue."""
-    import urllib.request
-    import urllib.error
     import json as _json
+    import urllib.error
+    import urllib.request
+
     from postmule import __version__
     from postmule.data.feedback import append_feedback
 
@@ -1097,6 +1174,7 @@ def api_feedback():
     # Optionally submit to GitHub if PAT is configured — no PII in issue body
     try:
         from postmule.core.credentials import load_credentials
+
         creds = load_credentials(_app._enc_path)
         github_pat = (creds or {}).get("github", {}).get("pat", "")
         target_repo = (creds or {}).get("github", {}).get("repo", "PostMule/app")
@@ -1120,11 +1198,13 @@ def api_feedback():
     body_parts.append("---\n*Submitted via PostMule in-app feedback*")
     issue_body = "\n\n".join(body_parts)
 
-    payload = _json.dumps({
-        "title": title,
-        "body": issue_body,
-        "labels": labels,
-    }).encode("utf-8")
+    payload = _json.dumps(
+        {
+            "title": title,
+            "body": issue_body,
+            "labels": labels,
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         f"https://api.github.com/repos/{target_repo}/issues",
@@ -1138,9 +1218,11 @@ def api_feedback():
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — HTTPS-only GitHub API; scheme is hardcoded
             result = _json.loads(resp.read().decode("utf-8"))
-        return jsonify({"saved": True, "url": result.get("html_url", ""), "number": result.get("number")}), 200
+        return jsonify(
+            {"saved": True, "url": result.get("html_url", ""), "number": result.get("number")}
+        ), 200
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         log.warning("GitHub feedback submission failed: %s", detail)
@@ -1153,6 +1235,7 @@ def api_feedback():
 # ------------------------------------------------------------------
 # Owner registry
 # ------------------------------------------------------------------
+
 
 @api_bp.route("/api/owners", methods=["GET"])
 def api_owners_list():
@@ -1207,6 +1290,7 @@ def api_mail_set_owners(mail_id: str):
         return jsonify({"error": "owner_ids must be a JSON array"}), 400
 
     from postmule.data._io import recent_years
+
     for year in recent_years():
         for bill in bills_data.load_bills(_app._data_dir, year):
             if bill.get("id") == mail_id:

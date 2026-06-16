@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import Any
 
 # Shared types live in base; re-exported here for backward compatibility.
 from postmule.providers.finance.base import (  # noqa: F401
@@ -115,6 +114,7 @@ class SimplifiProvider:
 
             # Parse date (Simplifi shows "Mar 20, 2025" format)
             from datetime import datetime
+
             try:
                 parsed_date = datetime.strptime(date_str, "%b %d, %Y").date().isoformat()
             except ValueError:

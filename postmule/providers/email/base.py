@@ -14,7 +14,7 @@ from postmule.providers import HealthResult
 class EmailMessage:
     message_id: str
     subject: str
-    received_date: str   # ISO format YYYY-MM-DD
+    received_date: str  # ISO format YYYY-MM-DD
     sender: str
     attachments: list[dict] = field(default_factory=list)  # [{name, data: bytes}]
 
@@ -27,8 +27,7 @@ class EmailProvider(Protocol):
         self,
         sender_filter: str,
         subject_filter: str,
-    ) -> list[EmailMessage]:
-        ...
+    ) -> list[EmailMessage]: ...
 
     def list_emails_with_pdf_attachments(self) -> list[EmailMessage]:
         """Return all unprocessed emails that contain at least one PDF attachment.
@@ -37,8 +36,6 @@ class EmailProvider(Protocol):
         """
         ...
 
-    def mark_as_processed(self, message_id: str) -> None:
-        ...
+    def mark_as_processed(self, message_id: str) -> None: ...
 
-    def health_check(self) -> HealthResult:
-        ...
+    def health_check(self) -> HealthResult: ...

@@ -22,10 +22,11 @@ log = logging.getLogger("postmule.classification")
 @dataclass
 class ProcessedMail:
     """All extracted data for a single mail item, ready to be stored and filed."""
+
     # Original file
     original_path: Path
     # Classification
-    category: str            # Bill | Notice | ForwardToMe | Personal | Junk | NeedsReview
+    category: str  # Bill | Notice | ForwardToMe | Personal | Junk | NeedsReview
     confidence: float
     # Extracted data
     sender: str | None
@@ -36,8 +37,8 @@ class ProcessedMail:
     summary: str
     # Processing metadata
     ocr_text: str
-    ocr_method: str          # "pdfplumber" | "tesseract" | "none"
-    processed_date: str      # YYYY-MM-DD
+    ocr_method: str  # "pdfplumber" | "tesseract" | "none"
+    processed_date: str  # YYYY-MM-DD
     tokens_used: int
     # Computed after classification
     suggested_filename: str = ""
@@ -98,7 +99,7 @@ def classify_pdf(
     category = result.category
     if result.confidence < confidence_threshold and category != "NeedsReview":
         log.info(
-            f"{pdf_path.name}: confidence {result.confidence:.2f} < threshold {confidence_threshold} "
+            f"{pdf_path.name}: confidence {result.confidence:.2f} < threshold {confidence_threshold} "  # noqa: E501
             f"— changing {category} to NeedsReview"
         )
         category = "NeedsReview"
@@ -142,6 +143,7 @@ def _detect_ocr_method(pdf_path: Path, text: str, dry_run: bool) -> str:
     # so we re-check pdfplumber cheaply
     try:
         import pdfplumber  # type: ignore[import]
+
         with pdfplumber.open(str(pdf_path)) as pdf:
             sample = (pdf.pages[0].extract_text() or "") if pdf.pages else ""
         return "pdfplumber" if len(sample.strip()) >= 50 else "tesseract"
@@ -171,6 +173,7 @@ def _build_filename(mail: ProcessedMail) -> str:
 def _slugify(text: str) -> str:
     """Convert a string to a safe filename component."""
     import re
+
     text = re.sub(r"[^\w\s-]", "", text)
     text = re.sub(r"\s+", "-", text.strip())
     return text

@@ -63,21 +63,22 @@ class WindowsScheduler(SchedulerAdapter):
             f'New-ScheduledTaskAction -Execute "{exe}"{arg_clause} -WorkingDirectory "{work_dir}"'
         )
         ps = (
-            f'$action   = {action}; '
+            f"$action   = {action}; "
             f'$trigger  = New-ScheduledTaskTrigger -Daily -At "{run_time}"; '
-            f'$settings = New-ScheduledTaskSettingsSet '
-            f'  -ExecutionTimeLimit (New-TimeSpan -Hours 2) '
-            f'  -RestartCount 1 -RestartInterval (New-TimeSpan -Minutes 30) '
-            f'  -StartWhenAvailable; '
+            f"$settings = New-ScheduledTaskSettingsSet "
+            f"  -ExecutionTimeLimit (New-TimeSpan -Hours 2) "
+            f"  -RestartCount 1 -RestartInterval (New-TimeSpan -Minutes 30) "
+            f"  -StartWhenAvailable; "
             f'if (Get-ScheduledTask -TaskName "{name}" -ErrorAction SilentlyContinue) {{ '
             f'  Unregister-ScheduledTask -TaskName "{name}" -Confirm:$false }}; '
             f'Register-ScheduledTask -TaskName "{name}" -Action $action -Trigger $trigger '
-            f'  -Settings $settings -RunLevel Highest '
+            f"  -Settings $settings -RunLevel Highest "
             f'  -Description "PostMule daily mail processing run" | Out-Null'
         )
         result = subprocess.run(
             ["powershell.exe", "-NonInteractive", "-Command", ps],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             raise RuntimeError(f"Task Scheduler registration failed: {result.stderr.strip()}")
@@ -91,13 +92,14 @@ class WindowsScheduler(SchedulerAdapter):
         )
         subprocess.run(
             ["powershell.exe", "-NonInteractive", "-Command", ps],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
 
     def is_registered(self, name: str) -> bool:
         ps = (
             f'if (Get-ScheduledTask -TaskName "{name}" -ErrorAction SilentlyContinue) '
-            f'{{ exit 0 }} else {{ exit 1 }}'
+            f"{{ exit 0 }} else {{ exit 1 }}"
         )
         result = subprocess.run(
             ["powershell.exe", "-NonInteractive", "-Command", ps],

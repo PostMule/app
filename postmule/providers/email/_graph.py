@@ -48,7 +48,9 @@ class GraphEmailProvider:
             import requests  # type: ignore[import]
         except ImportError:
             raise RuntimeError("requests is not installed. Run: pip install requests")
-        resp = requests.get(f"{_GRAPH_BASE}{path}", headers=self._headers(), params=params, timeout=30)
+        resp = requests.get(
+            f"{_GRAPH_BASE}{path}", headers=self._headers(), params=params, timeout=30
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -57,12 +59,15 @@ class GraphEmailProvider:
             import requests  # type: ignore[import]
         except ImportError:
             raise RuntimeError("requests is not installed. Run: pip install requests")
-        resp = requests.patch(f"{_GRAPH_BASE}{path}", headers=self._headers(), json=body, timeout=30)
+        resp = requests.patch(
+            f"{_GRAPH_BASE}{path}", headers=self._headers(), json=body, timeout=30
+        )
         resp.raise_for_status()
 
     def health_check(self):
         """Return a HealthResult by calling /me on the Graph API."""
         from postmule.providers import HealthResult
+
         try:
             data = self._get("/me", select="displayName,mail")
             name = data.get("displayName") or data.get("mail", "unknown")
@@ -123,7 +128,9 @@ class GraphEmailProvider:
                     try:
                         msg = self._load_attachments(msg)
                     except Exception as exc:
-                        log.warning(f"Failed to load attachments for {msg.message_id[:16]}...: {exc}")
+                        log.warning(
+                            f"Failed to load attachments for {msg.message_id[:16]}...: {exc}"
+                        )
                 results.append(msg)
 
             next_link = data.get("@odata.nextLink")
@@ -144,6 +151,7 @@ class GraphEmailProvider:
             name = att.get("name", "")
             if name.lower().endswith(".pdf"):
                 import base64
+
                 content = att.get("contentBytes", "")
                 payload = base64.b64decode(content) if content else b""
                 attachments.append({"name": name, "data": payload})

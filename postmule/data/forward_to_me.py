@@ -21,15 +21,21 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 from postmule.data._io import atomic_write
 
 _HEADERS = [
-    "ID", "Date Received", "Date Processed", "Sender", "Recipients",
-    "Summary", "Drive File ID", "Filename", "Forwarding Status",
+    "ID",
+    "Date Received",
+    "Date Processed",
+    "Sender",
+    "Recipients",
+    "Summary",
+    "Drive File ID",
+    "Filename",
+    "Forwarding Status",
 ]
 
 
@@ -129,15 +135,17 @@ def update_tags(data_dir: Path, item_id: str, tag: str, action: str) -> bool:
 def to_sheet_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
     rows = [_HEADERS]
     for i in items:
-        rows.append([
-            i.get("id", ""),
-            i.get("date_received", ""),
-            i.get("date_processed", ""),
-            i.get("sender", ""),
-            ", ".join(i.get("recipients", [])),
-            i.get("summary", ""),
-            i.get("drive_file_id", ""),
-            i.get("filename", ""),
-            i.get("forwarding_status", "pending"),
-        ])
+        rows.append(
+            [
+                i.get("id", ""),
+                i.get("date_received", ""),
+                i.get("date_processed", ""),
+                i.get("sender", ""),
+                ", ".join(i.get("recipients", [])),
+                i.get("summary", ""),
+                i.get("drive_file_id", ""),
+                i.get("filename", ""),
+                i.get("forwarding_status", "pending"),
+            ]
+        )
     return rows

@@ -19,7 +19,7 @@ Entity record schema (v3 — field additions require an app update + migration):
   },
   "phone": null,
   "website": null,
-  "payment_address": null,       # remittance/payment mailing address (may differ from general address)
+  "payment_address": null,  # remittance/payment mailing address (may differ from general address)
   "email": null,
   "notes": null,                 # free-text, human-editable
   "auto_populated_at": null,     # ISO datetime of last LLM enrichment
@@ -61,7 +61,11 @@ SCHEMA_VERSION = 3
 CATEGORIES = ("biller", "sender", "vendor", "government", "personal")
 
 _EMPTY_ADDRESS: dict[str, str | None] = {
-    "street": None, "city": None, "state": None, "zip": None, "country": None,
+    "street": None,
+    "city": None,
+    "state": None,
+    "zip": None,
+    "country": None,
 }
 
 
@@ -179,10 +183,7 @@ def load_entities(data_dir: Path) -> list[dict[str, Any]]:
         return []
     raw = json.loads(path.read_text(encoding="utf-8"))
     needs_migration = any(
-        "type" in e
-        or "category" not in e
-        or "account_numbers" in e
-        or "friendly_name" not in e
+        "type" in e or "category" not in e or "account_numbers" in e or "friendly_name" not in e
         for e in raw
     )
     entities = [migrate_entity(e) for e in raw]
@@ -292,8 +293,16 @@ def enrich_entity(
             continue
         verified = set(entity.get("user_verified_fields", []))
         for key, value in fields.items():
-            if key in ("id", "friendly_name", "canonical_name", "aliases", "denied_aliases",
-                       "account_number", "user_verified_fields", "created_date"):
+            if key in (
+                "id",
+                "friendly_name",
+                "canonical_name",
+                "aliases",
+                "denied_aliases",
+                "account_number",
+                "user_verified_fields",
+                "created_date",
+            ):
                 continue
             if key in verified:
                 continue
@@ -421,9 +430,11 @@ def process_auto_approvals(data_dir: Path) -> list[dict[str, Any]]:
 def is_denied(data_dir: Path, proposed_name: str, entity_id: str) -> bool:
     """Check if a proposed alias was previously denied by the user."""
     for match in load_pending_matches(data_dir):
-        if (match["proposed_name"] == proposed_name
-                and match["match_entity_id"] == entity_id
-                and match["status"] == "denied"):
+        if (
+            match["proposed_name"] == proposed_name
+            and match["match_entity_id"] == entity_id
+            and match["status"] == "denied"
+        ):
             return True
     # Also check entity's denied_aliases list
     for entity in load_entities(data_dir):
@@ -434,32 +445,48 @@ def is_denied(data_dir: Path, proposed_name: str, entity_id: str) -> bool:
 
 def to_sheet_rows(entities: list[dict[str, Any]]) -> list[list[Any]]:
     headers = [
-        "ID", "Friendly Name", "Canonical Name", "Category", "Aliases",
-        "Phone", "Website", "Email", "Account Number",
-        "Address", "Last Seen Mail ID", "Created Date",
+        "ID",
+        "Friendly Name",
+        "Canonical Name",
+        "Category",
+        "Aliases",
+        "Phone",
+        "Website",
+        "Email",
+        "Account Number",
+        "Address",
+        "Last Seen Mail ID",
+        "Created Date",
     ]
     rows = [headers]
     for e in entities:
         addr = e.get("address") or {}
         addr_str = ", ".join(
-            v for v in [
-                addr.get("street"), addr.get("city"), addr.get("state"),
-                addr.get("zip"), addr.get("country"),
-            ] if v
+            v
+            for v in [
+                addr.get("street"),
+                addr.get("city"),
+                addr.get("state"),
+                addr.get("zip"),
+                addr.get("country"),
+            ]
+            if v
         )
         acct = e.get("account_number") or ""
-        rows.append([
-            e.get("id", ""),
-            e.get("friendly_name", ""),
-            e.get("canonical_name", ""),
-            e.get("category", ""),
-            ", ".join(e.get("aliases", [])),
-            e.get("phone", "") or "",
-            e.get("website", "") or "",
-            e.get("email", "") or "",
-            mask_account_number(acct) if acct else "",
-            addr_str,
-            e.get("last_seen_in_mail_id", "") or "",
-            e.get("created_date", ""),
-        ])
+        rows.append(
+            [
+                e.get("id", ""),
+                e.get("friendly_name", ""),
+                e.get("canonical_name", ""),
+                e.get("category", ""),
+                ", ".join(e.get("aliases", [])),
+                e.get("phone", "") or "",
+                e.get("website", "") or "",
+                e.get("email", "") or "",
+                mask_account_number(acct) if acct else "",
+                addr_str,
+                e.get("last_seen_in_mail_id", "") or "",
+                e.get("created_date", ""),
+            ]
+        )
     return rows
