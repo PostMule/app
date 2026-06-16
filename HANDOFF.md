@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-16 (autopilot): completed `p1-macos-install-contract`. The work was preserved in recovery branch `autopilot/recovery-20260615-082236` from a prior run that was blocked by the pre-commit hook splat bug (ops #14). The hook was fixed by the owner (the `@(...)` array-force wrapper is now in place), so the committed work landed cleanly in this run. Delivered: `setup.sh` (macOS/Linux install script mirroring setup.ps1: venv + console-script install, interactive or silent config, launchd job on macOS), updated `docs/install-cli.md` and `README.md` with macOS/Linux sections, `docs/decisions.md` entry, `.gitattributes` `*.sh eol=lf` rule, and 3 tests in `tests/unit/test_setup_sh.py`. Quality state: ruff clean, mypy 0 errors, bandit 0 Medium/High, 1055 passed (3 new), coverage 74.29%.
+Session 2026-06-16 (autopilot): worked on `p1-self-audit` (deterministic harness self-audit engine). The task requires creating `scripts/self-audit.ps1` and modifying `scripts/watchdog.ps1` — both in the ops governed surface (PLAN §14.6). The agent cannot commit governed-surface changes; instead filed `ops/proposals/p1-self-audit-implementation.md` with the complete implementation (all code, watchdog integration diff, apply instructions, and COMMANDS.md entry). The proposal implements the four checks from `proposals/self-audit-watchdog.md`: preservation integrity, done-task landing, error-rate trend, needs-owner age. Schema is frozen (v1). Task set to needs-owner. Quality state unchanged from last run: ruff clean, mypy 0 errors, bandit 0 Medium/High, 1055 passed, coverage 74.29%.
 
 ---
 
@@ -18,9 +18,10 @@ Session 2026-06-16 (autopilot): completed `p1-macos-install-contract`. The work 
 
 **Cross-platform decision (2026-06-12):** owner committed to making PostMule run on Windows and macOS, and to rewriting the harness in Python per the template. Build plan: ops `PLAN.md` §16 (two tracks: A = PostMule itself OS-agnostic, scoped by #105; B = Python harness in ops `harness/`, deferred past v0.1.0 per the MVP review). Track B step 1 (the dependency-free Python core, 55 tests) stays as already-built; the PowerShell harness in ops `scripts/` is frozen and ships v0.1.0.
 
-**P1 queue:** p1-macos-install-contract done. Remaining pending: p1-self-audit. Quality state as of 2026-06-16: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1055 passed.
+**P1 queue:** All pending queue tasks are now needs-owner; no pending tasks remain. Quality state: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1055 passed.
 
 **Blocked (needs owner action before next autopilot run can advance):**
+- `p1-self-audit` (needs-owner): Complete implementation is at `ops/proposals/p1-self-audit-implementation.md` — requires owner session to apply governed files (`scripts/self-audit.ps1`, `scripts/watchdog.ps1` patch, `governance-baseline.lock` regen, `COMMANDS.md`).
 - `p1-ocr-tesseract` (needs-owner): OCR per-OS Tesseract detection and clear error messaging.
 - pip 26.0.1 CVEs (3 remaining): pip cannot self-upgrade via `pip install -r requirements.txt`; deferred until safe-pip.ps1 targets the venv Python. All other runtime CVEs cleared.
 - Gate-1 coverage floor: the ops gate script still requires ≥80%; proposal to align it with the measured 74% floor is at `ops/proposals/gate-1-coverage-floor.md`.
