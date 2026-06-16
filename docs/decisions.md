@@ -165,3 +165,10 @@ After stubbing 14 provider files (each 7 statements, all 0%), the total coverage
 
 **ruff E501 per-file-ignores for summary.py and gemini.py.**
 These files contain embedded HTML email templates and LLM prompt JSON schemas respectively. Long lines in these strings cannot be wrapped without corrupting the HTML/JSON content or changing the LLM prompt. `# noqa: E501` cannot be placed inside Python string literals (becomes visible HTML/prompt text). Per-file-ignores is the standard ruff approach for files with embedded domain-specific content.
+
+---
+
+## 2026-06-16 — safe-pip.ps1 fix blocked by governed surface; venv integrity tests added (p1-fix-safe-pip)
+
+**Venv integrity tests added as the app-side deliverable; the safe-pip.ps1 fix is needs-owner.**
+`ops/scripts/safe-pip.ps1` is in the governed surface (hash tracked in `governance-baseline.lock`); the pre-commit hook rejects any commit that alters it. The proposal for the fix exists at `ops/proposals/safe-pip-targets-wrong-python.md` and was filed in the prior run. Rather than attempting to bypass governance, three tests were added in `tests/unit/test_venv_integrity.py`: they verify the pytest process runs inside `.venv` and that key packages (cryptography, requests) are installed there, not globally. These tests pass now and will catch any future regression where safe-pip targets the wrong interpreter. The actual `safe-pip.ps1` edit and baseline update require the owner to apply the proposal manually. See ops issue #11.
