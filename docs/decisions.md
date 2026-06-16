@@ -168,6 +168,19 @@ These files contain embedded HTML email templates and LLM prompt JSON schemas re
 
 ---
 
+## 2026-06-16 — Security package upgrades applied to venv; pip CVE deferred; mypy overrides added (p1-security-core)
+
+**Ran safe-pip.ps1 with venv activated as a workaround for the safe-pip targeting bug.**
+`safe-pip.ps1` uses bare `pip install`, which resolves to the system Python when the venv is not activated. Activating `.venv/Scripts/Activate.ps1` in the same PowerShell session before calling `safe-pip.ps1` causes `pip` to resolve to the venv pip. This installs from `requirements-lock.txt` into the venv as intended. The root fix (changing `pip install` to `.venv\Scripts\python.exe -m pip install` in `safe-pip.ps1`) remains blocked by the governed surface; this workaround is described so it can inform the ops proposal.
+
+**pip 26.0.1 CVEs deferred; pip is not an app runtime dependency.**
+`pip install -r requirements.txt` cannot upgrade pip itself — pip requires `python -m pip install --upgrade pip` for self-upgrade. Adding `pip==26.1.2` to `requirements-lock.txt` does not install it; pip's own error message rejects self-upgrade via `pip install`. The three pip CVEs (PYSEC-2026-196, CVE-2026-3219, CVE-2026-6357) affect only pip installation operations, not PostMule's runtime. Upgrade remains deferred pending safe-pip.ps1 fix (ops proposals/safe-pip-targets-wrong-python.md, ops #11).
+
+**mypy overrides added for yaml and requests (import-untyped regression from requests 2.33.0).**
+requests 2.32.5 (installed in the venv before this run) did not trigger `[import-untyped]` mypy errors; requests 2.33.0 does. PyYAML has never had py.typed. Both libraries lack bundled type stubs. Added `[[tool.mypy.overrides]]` for `yaml`, `requests`, and `requests.*` with `ignore_missing_imports = true` in `pyproject.toml`. This preserves type-checking on the rest of the codebase while silencing the third-party stubs noise for libraries where `types-*` packages would be the alternative.
+
+---
+
 ## 2026-06-16 — safe-pip.ps1 fix blocked by governed surface; venv integrity tests added (p1-fix-safe-pip)
 
 **Venv integrity tests added as the app-side deliverable; the safe-pip.ps1 fix is needs-owner.**
