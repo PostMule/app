@@ -1,0 +1,30 @@
+Pacific Gas & Electric Company
+Account Number: XXXX-XXXX-7829
+
+Service Address: 123 Main Street, Apt 4B
+                 Springfield, CA 94105
+
+Billing Period: March 1, 2026 - March 31, 2026
+Statement Date: April 2, 2026
+Due Date:       April 20, 2026
+
+ACCOUNT SUMMARY
+Previous Balance:    $0.00
+Payments Received:   $0.00
+Current Charges:   $127.43
+
+AMOUNT DUE: $127.43
+
+Please pay by April 20, 2026 to avoid late fees.
+
+ELECTRIC SERVICE CHARGES
+Basic Service Charge:    $10.00
+Energy Charge (412 kWh): $82.40
+Taxes & Fees:            $35.03
+
+Payment Options:
+  Pay online at pge.com
+  Call 1-800-743-5000
+  Mail check to: PG&E, P.O. Box 997300, Sacramento, CA 95899
+
+Thank you for being a PG&E customer.

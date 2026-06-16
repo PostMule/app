@@ -1,14 +1,39 @@
 """Extended tests for postmule.providers.llm.ollama (health_check, classify, _parse_response)."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from postmule.providers.llm.ollama import (
+    OLLAMA_DEFAULT_HOST,
     OllamaProvider,
     _parse_response,
     _safe_float,
+)
+
+_FIXTURE_OCR = Path(__file__).parent.parent / "fixtures" / "ollama" / "sample_bill_ocr.txt"
+
+_VALID_CATEGORIES = {"Bill", "Notice", "ForwardToMe", "Personal", "Junk", "NeedsReview"}
+
+
+def _ollama_ready(host: str = OLLAMA_DEFAULT_HOST, model: str = "llama3.2") -> bool:
+    """Return True only if Ollama is reachable at host and the model is pulled."""
+    try:
+        import requests as _req
+        resp = _req.get(f"{host}/api/tags", timeout=2)
+        resp.raise_for_status()
+        models = [m.get("name", "") for m in resp.json().get("models", [])]
+        base = model.split(":")[0]
+        return any(m.split(":")[0] == base for m in models)
+    except Exception:
+        return False
+
+
+_requires_ollama = pytest.mark.skipif(
+    not _ollama_ready(),
+    reason="Ollama not running at localhost:11434 or llama3.2 not pulled",
 )
 
 
@@ -171,3 +196,40 @@ class TestOllamaParseResponse:
         assert result.category == "Junk"
         assert result.recipients == []
         assert result.amount_due is None
+
+
+# ---------------------------------------------------------------------------
+# Live Ollama: structured extraction against committed fixture text
+# Requires: Ollama running at localhost:11434 with llama3.2 pulled.
+# Skipped automatically when those conditions are not met.
+# ---------------------------------------------------------------------------
+
+class TestOllamaLiveFixtureClassify:
+    """
+    Dedicated integration test: classify the committed sample bill OCR text
+    through a real Ollama server and verify the result is structurally correct.
+    """
+
+    @_requires_ollama
+    def test_classify_bill_fixture_returns_valid_structure(self):
+        provider = OllamaProvider()
+        ocr_text = _FIXTURE_OCR.read_text(encoding="utf-8")
+
+        result = provider.classify(ocr_text, known_names=["Jane Smith"])
+
+        assert result.category in _VALID_CATEGORIES
+        assert 0.0 <= result.confidence <= 1.0
+        assert isinstance(result.summary, str) and result.summary
+        assert result.tokens_used > 0
+
+    @_requires_ollama
+    def test_classify_bill_fixture_extracts_amount_and_date(self):
+        """The fixture contains $127.43 and a due date; verify Ollama extracts both."""
+        provider = OllamaProvider()
+        ocr_text = _FIXTURE_OCR.read_text(encoding="utf-8")
+
+        result = provider.classify(ocr_text)
+
+        assert result.category == "Bill"
+        assert result.amount_due == pytest.approx(127.43, abs=0.01)
+        assert result.due_date == "2026-04-20"

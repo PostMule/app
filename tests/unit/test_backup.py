@@ -8,10 +8,7 @@ import io
 import json
 import zipfile
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from postmule.agents.backup import (
     _create_zip,
@@ -23,7 +20,6 @@ from postmule.agents.backup import (
     run_backup,
     run_restore,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -153,7 +149,7 @@ class TestExtractZip:
         restore_dir.mkdir()
         zip_bytes = self._make_zip({"credentials.enc": b"secret"})
 
-        restored = _extract_zip(zip_bytes, restore_dir)
+        _extract_zip(zip_bytes, restore_dir)
 
         dest = tmp_path / "credentials.enc"
         assert dest.exists()
@@ -508,3 +504,64 @@ class TestListBackups:
             result = list_backups(cfg, {})
 
         assert result[0]["size_bytes"] == 98765
+
+
+# ---------------------------------------------------------------------------
+# Snapshot write+restore via platform path layer
+# ---------------------------------------------------------------------------
+
+class TestBackupSnapshotViaPlatformPathLayer:
+    """
+    Dedicated snapshot round-trip that derives the data directory from
+    platform_paths.default_install_dir() rather than a hardcoded tmp path.
+    Exercises the integration between the backup agent and the path layer.
+    """
+
+    def test_snapshot_write_restore_round_trip(self, tmp_path, monkeypatch):
+        import postmule.core.platform_paths as pp
+
+        install_dir = tmp_path / "PostMule"
+        monkeypatch.setattr(pp, "default_install_dir", lambda: install_dir)
+
+        data_dir = pp.default_install_dir() / "data"
+        data_dir.mkdir(parents=True)
+        bills = [{"id": "b1", "amount": 42.00}]
+        (data_dir / "bills_2026.json").write_text(json.dumps(bills), encoding="utf-8")
+        (data_dir / "notices_2026.json").write_text("[]", encoding="utf-8")
+        pending = data_dir / "pending"
+        pending.mkdir()
+        (pending / "bill_matches.json").write_text("[]", encoding="utf-8")
+
+        zip_bytes, file_list = _create_zip(data_dir, None, None)
+
+        assert "data/bills_2026.json" in file_list
+        assert "data/notices_2026.json" in file_list
+        assert "data/pending/bill_matches.json" in file_list
+
+        restore_dir = tmp_path / "restore" / "data"
+        restore_dir.mkdir(parents=True)
+        restored = _extract_zip(zip_bytes, restore_dir)
+
+        restored_bills = json.loads((restore_dir / "bills_2026.json").read_text(encoding="utf-8"))
+        assert restored_bills == bills
+        assert (restore_dir / "notices_2026.json").exists()
+        assert (restore_dir / "pending" / "bill_matches.json").exists()
+        assert len(restored) >= 3
+
+    def test_snapshot_arcnames_use_forward_slashes(self, tmp_path, monkeypatch):
+        """ZIP arcnames must use forward slashes regardless of OS path separator."""
+        import postmule.core.platform_paths as pp
+
+        install_dir = tmp_path / "PostMule"
+        monkeypatch.setattr(pp, "default_install_dir", lambda: install_dir)
+
+        data_dir = pp.default_install_dir() / "data"
+        nested = data_dir / "pending"
+        nested.mkdir(parents=True)
+        (nested / "entity_matches.json").write_text("{}", encoding="utf-8")
+
+        zip_bytes, _ = _create_zip(data_dir, None, None)
+
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            for name in zf.namelist():
+                assert "\\" not in name, f"Backslash in ZIP arcname: {name!r}"
