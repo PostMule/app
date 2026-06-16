@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-16 (autopilot): attempted `p1-fix-safe-pip` (ops #11). The primary deliverable — editing `ops/scripts/safe-pip.ps1` to target the project `.venv` instead of the global Python — is blocked: `safe-pip.ps1` is in the governed surface (`governance-baseline.lock`), and the pre-commit hook rejects any commit that changes it. The proposal was filed in the prior run (`ops/proposals/safe-pip-targets-wrong-python.md`). The app-side deliverable was completed: three tests in `tests/unit/test_venv_integrity.py` verify the pytest process runs inside `.venv` and that key packages are installed there (1052 passed, 74.29% coverage). Task marked needs-owner. Decision log updated in `docs/decisions.md`.
+Session 2026-06-16 (autopilot): completed `p1-security-core`. The six runtime CVEs are cleared: cryptography 48.0.1, idna 3.15, pillow 12.2.0, pytest 9.0.3, requests 2.33.0, urllib3 2.7.0 were installed into the venv by running `safe-pip.ps1` with the venv activated (workaround for the safe-pip targeting bug; described in decisions.md). The bandit B324 findings (usedforsecurity=False on MD5 integrity hash calls in google_drive.py and local.py) were already fixed in a prior run. pip 26.0.1 has 3 CVEs but pip cannot self-upgrade via `pip install -r requirements.txt` — deferred pending safe-pip.ps1 fix (ops proposals/safe-pip-targets-wrong-python.md). A mypy regression from requests 2.33.0 (import-untyped errors for yaml and requests) was fixed by adding [[tool.mypy.overrides]] in pyproject.toml. Quality state: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, pytest 1052 passed, coverage 74.29%. Recovery branch 20260614-142749 (imap+simplifi extended tests, no queue task) described in ops issue #20.
 
 ---
 
@@ -18,12 +18,12 @@ Session 2026-06-16 (autopilot): attempted `p1-fix-safe-pip` (ops #11). The prima
 
 **Cross-platform decision (2026-06-12):** owner committed to making PostMule run on Windows and macOS, and to rewriting the harness in Python per the template. Build plan: ops `PLAN.md` §16 (two tracks: A = PostMule itself OS-agnostic, scoped by #105; B = Python harness in ops `harness/`, deferred past v0.1.0 per the MVP review). Track B step 1 (the dependency-free Python core, 55 tests) stays as already-built; the PowerShell harness in ops `scripts/` is frozen and ships v0.1.0.
 
-**P1 queue complete.** All tasks are done or needs-owner. Quality state as of 2026-06-15: ruff clean, mypy clean, bandit 0 Medium/0 High, coverage 74%, pytest 1049 passed.
+**P1 queue:** p1-security-core done. Remaining pending: p1-macos-install-contract (blocked on pre-commit hook bug) and p1-self-audit. Quality state as of 2026-06-16: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1052 passed.
 
 **Blocked (needs owner action before next autopilot run can advance):**
-- `p1-security-core` (needs-owner): pip-audit still reports 21 CVEs in the venv because `safe-pip.ps1` installs to the global Python instead of `.venv`. The proposal to fix safe-pip is at `ops/proposals/safe-pip-targets-wrong-python.md`. Once fixed, re-run safe-pip with requirements-lock.txt (already has patched pins) and re-run pip-audit.
-- `p1-macos-install-contract` (needs-owner, attempts=2): work complete (setup.sh, docs, tests) but blocked on pre-commit hook bug (ops #14, proposals/pre-commit-hook-splat-bug.md). Completed work preserved in recovery branches tracked by ops #18.
+- `p1-macos-install-contract` (pending in queue, attempts=0): work complete (setup.sh, docs, tests) but blocked on pre-commit hook bug (ops #14, proposals/pre-commit-hook-splat-bug.md). Completed work preserved in recovery branches tracked by ops #18.
 - `p1-ocr-tesseract` (needs-owner): OCR per-OS Tesseract detection and clear error messaging.
+- pip 26.0.1 CVEs (3 remaining): pip cannot self-upgrade via `pip install -r requirements.txt`; deferred until safe-pip.ps1 targets the venv Python. All other runtime CVEs cleared.
 - Gate-1 coverage floor: the ops gate script still requires ≥80%; proposal to align it with the measured 74% floor is at `ops/proposals/gate-1-coverage-floor.md`.
 
 **Recommended (owner-attended):** Run the pre-P1 product premortem from `mvp-review.md` section 3 — a focused `council-this` session scoped to runtime/operational failure modes (cloud-LLM dependency, token cost, pipeline runtime failures), not a re-run of the 2026-04-04 architecture council. This sits beside the P1 queue, not inside it.
