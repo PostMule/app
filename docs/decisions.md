@@ -145,43 +145,21 @@ path is implemented but untested on real hardware; verify at bring-up. See #105.
 
 ---
 
+## macOS Install Contract
+
+**`setup.sh` (repo root, 2026-06-15) is the macOS/Linux counterpart to `setup.ps1`.**
+Same contract: venv + console-script install (`pip install -e .`), interactive or
+silent config of `alert_email`/`scan_sender`/Gemini key, credential encryption via
+`postmule.core.credentials` (keyring already cross-platform — Keychain on macOS), then
+a dry run. On macOS it also calls `postmule install-task` to register the launchd job
+added by the scheduler adapter; Linux has no scheduler adapter yet, so the step is
+skipped with a warning to use cron manually. No Inno Setup port for macOS — `setup.sh`
+is the only supported install path there. Per-OS `INSTALL_CMD`/`INSTALL_SMOKE_CMD` are
+documented in `docs/install-cli.md` under "Install contract (per-OS)". See #105.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**
 GitHub Pages serves from `docs/` on the `main` branch. The landing page uses relative paths to `logo_face.png` and `mockup_dashboard.html` — keep all three files in `docs/` together. DNS configuration and CNAME setup are tracked in issue #91: once DNS A records point to GitHub Pages, add `docs/CNAME` containing `postmule.com` to enable the custom domain.
-
----
-
-## 2026-06-15 — Quality gate baseline: ruff format applied, mypy errors fixed, bandit nosec on false positives (p1-coverage-remeasure)
-
-**`Config.get("app", "dry_run")` instead of `Config.get("app", {}).get("dry_run")`.**
-The Config.get() signature is `get(*keys: str, default: Any = None)`. Passing `{}` as a second positional argument made it a second key string (invalid type, also fails at runtime if reached). Three call sites in api.py were using this pattern. The intent was to chain dict access, which Config.get() already handles natively with multiple positional keys. Fixed to `config.get("app", "dry_run")`.
-
-**`build_google_credentials()` return type changed from forward-reference string to `Any`.**
-The annotation `"google.oauth2.credentials.Credentials"` is a forward reference that mypy resolves. With `from __future__ import annotations`, the quotes are redundant, and mypy still fails to find `google` in the module namespace. The function returns a `google.oauth2.credentials.Credentials` at runtime (via lazy import inside the function body), so `Any` is accurate without requiring a TYPE_CHECKING import block. The docstring retains the full type name for documentation.
-
-**Coverage floor set at 74% (measured after stub-providers), not 80% (PLAN target).**
-After stubbing 14 provider files (each 7 statements, all 0%), the total coverage is 74%. Reaching 80% requires either implementing the stubs or writing Flask test-client tests for the web routes (api.py, connections.py, setup.py, pages.py), which are at 33-66%. A `--cov-fail-under=74` regression floor was added to `pyproject.toml`. A proposal to update the gate-1 script floor is in `ops/proposals/gate-1-coverage-floor.md`.
-
-**ruff E501 per-file-ignores for summary.py and gemini.py.**
-These files contain embedded HTML email templates and LLM prompt JSON schemas respectively. Long lines in these strings cannot be wrapped without corrupting the HTML/JSON content or changing the LLM prompt. `# noqa: E501` cannot be placed inside Python string literals (becomes visible HTML/prompt text). Per-file-ignores is the standard ruff approach for files with embedded domain-specific content.
-
----
-
-## 2026-06-16 — Security package upgrades applied to venv; pip CVE deferred; mypy overrides added (p1-security-core)
-
-**Ran safe-pip.ps1 with venv activated as a workaround for the safe-pip targeting bug.**
-`safe-pip.ps1` uses bare `pip install`, which resolves to the system Python when the venv is not activated. Activating `.venv/Scripts/Activate.ps1` in the same PowerShell session before calling `safe-pip.ps1` causes `pip` to resolve to the venv pip. This installs from `requirements-lock.txt` into the venv as intended. The root fix (changing `pip install` to `.venv\Scripts\python.exe -m pip install` in `safe-pip.ps1`) remains blocked by the governed surface; this workaround is described so it can inform the ops proposal.
-
-**pip 26.0.1 CVEs deferred; pip is not an app runtime dependency.**
-`pip install -r requirements.txt` cannot upgrade pip itself — pip requires `python -m pip install --upgrade pip` for self-upgrade. Adding `pip==26.1.2` to `requirements-lock.txt` does not install it; pip's own error message rejects self-upgrade via `pip install`. The three pip CVEs (PYSEC-2026-196, CVE-2026-3219, CVE-2026-6357) affect only pip installation operations, not PostMule's runtime. Upgrade remains deferred pending safe-pip.ps1 fix (ops proposals/safe-pip-targets-wrong-python.md, ops #11).
-
-**mypy overrides added for yaml and requests (import-untyped regression from requests 2.33.0).**
-requests 2.32.5 (installed in the venv before this run) did not trigger `[import-untyped]` mypy errors; requests 2.33.0 does. PyYAML has never had py.typed. Both libraries lack bundled type stubs. Added `[[tool.mypy.overrides]]` for `yaml`, `requests`, and `requests.*` with `ignore_missing_imports = true` in `pyproject.toml`. This preserves type-checking on the rest of the codebase while silencing the third-party stubs noise for libraries where `types-*` packages would be the alternative.
-
----
-
-## 2026-06-16 — safe-pip.ps1 fix blocked by governed surface; venv integrity tests added (p1-fix-safe-pip)
-
-**Venv integrity tests added as the app-side deliverable; the safe-pip.ps1 fix is needs-owner.**
-`ops/scripts/safe-pip.ps1` is in the governed surface (hash tracked in `governance-baseline.lock`); the pre-commit hook rejects any commit that alters it. The proposal for the fix exists at `ops/proposals/safe-pip-targets-wrong-python.md` and was filed in the prior run. Rather than attempting to bypass governance, three tests were added in `tests/unit/test_venv_integrity.py`: they verify the pytest process runs inside `.venv` and that key packages (cryptography, requests) are installed there, not globally. These tests pass now and will catch any future regression where safe-pip targets the wrong interpreter. The actual `safe-pip.ps1` edit and baseline update require the owner to apply the proposal manually. See ops issue #11.

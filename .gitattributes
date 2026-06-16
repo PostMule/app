@@ -6,6 +6,7 @@
 *.cmd  text eol=crlf
 
 # Always LF for everything else
+*.sh   text eol=lf
 *.py   text eol=lf
 *.yaml text eol=lf
 *.yml  text eol=lf

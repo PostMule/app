@@ -36,6 +36,14 @@ cd PostMule
 .\installer\install.ps1
 ```
 
+macOS / Linux:
+
+```bash
+git clone https://github.com/PostMule/app.git PostMule
+cd PostMule
+./setup.sh
+```
+
 The script checks prerequisites, creates a virtual environment, prompts for your email and API key, encrypts credentials, and registers the daily scheduled task. See the [CLI Install Guide](docs/install-cli.md) for the manual steps or silent-install flags.
 
 ---
