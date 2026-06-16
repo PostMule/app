@@ -149,3 +149,19 @@ path is implemented but untested on real hardware; verify at bring-up. See #105.
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**
 GitHub Pages serves from `docs/` on the `main` branch. The landing page uses relative paths to `logo_face.png` and `mockup_dashboard.html` — keep all three files in `docs/` together. DNS configuration and CNAME setup are tracked in issue #91: once DNS A records point to GitHub Pages, add `docs/CNAME` containing `postmule.com` to enable the custom domain.
+
+---
+
+## 2026-06-15 — Quality gate baseline: ruff format applied, mypy errors fixed, bandit nosec on false positives (p1-coverage-remeasure)
+
+**`Config.get("app", "dry_run")` instead of `Config.get("app", {}).get("dry_run")`.**
+The Config.get() signature is `get(*keys: str, default: Any = None)`. Passing `{}` as a second positional argument made it a second key string (invalid type, also fails at runtime if reached). Three call sites in api.py were using this pattern. The intent was to chain dict access, which Config.get() already handles natively with multiple positional keys. Fixed to `config.get("app", "dry_run")`.
+
+**`build_google_credentials()` return type changed from forward-reference string to `Any`.**
+The annotation `"google.oauth2.credentials.Credentials"` is a forward reference that mypy resolves. With `from __future__ import annotations`, the quotes are redundant, and mypy still fails to find `google` in the module namespace. The function returns a `google.oauth2.credentials.Credentials` at runtime (via lazy import inside the function body), so `Any` is accurate without requiring a TYPE_CHECKING import block. The docstring retains the full type name for documentation.
+
+**Coverage floor set at 74% (measured after stub-providers), not 80% (PLAN target).**
+After stubbing 14 provider files (each 7 statements, all 0%), the total coverage is 74%. Reaching 80% requires either implementing the stubs or writing Flask test-client tests for the web routes (api.py, connections.py, setup.py, pages.py), which are at 33-66%. A `--cov-fail-under=74` regression floor was added to `pyproject.toml`. A proposal to update the gate-1 script floor is in `ops/proposals/gate-1-coverage-floor.md`.
+
+**ruff E501 per-file-ignores for summary.py and gemini.py.**
+These files contain embedded HTML email templates and LLM prompt JSON schemas respectively. Long lines in these strings cannot be wrapped without corrupting the HTML/JSON content or changing the LLM prompt. `# noqa: E501` cannot be placed inside Python string literals (becomes visible HTML/prompt text). Per-file-ignores is the standard ruff approach for files with embedded domain-specific content.
