@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-16 (autopilot): completed `p1-security-core`. The six runtime CVEs are cleared: cryptography 48.0.1, idna 3.15, pillow 12.2.0, pytest 9.0.3, requests 2.33.0, urllib3 2.7.0 were installed into the venv by running `safe-pip.ps1` with the venv activated (workaround for the safe-pip targeting bug; described in decisions.md). The bandit B324 findings (usedforsecurity=False on MD5 integrity hash calls in google_drive.py and local.py) were already fixed in a prior run. pip 26.0.1 has 3 CVEs but pip cannot self-upgrade via `pip install -r requirements.txt` — deferred pending safe-pip.ps1 fix (ops proposals/safe-pip-targets-wrong-python.md). A mypy regression from requests 2.33.0 (import-untyped errors for yaml and requests) was fixed by adding [[tool.mypy.overrides]] in pyproject.toml. Quality state: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, pytest 1052 passed, coverage 74.29%. Recovery branch 20260614-142749 (imap+simplifi extended tests, no queue task) described in ops issue #20.
+Session 2026-06-16 (autopilot): completed `p1-macos-install-contract`. The work was preserved in recovery branch `autopilot/recovery-20260615-082236` from a prior run that was blocked by the pre-commit hook splat bug (ops #14). The hook was fixed by the owner (the `@(...)` array-force wrapper is now in place), so the committed work landed cleanly in this run. Delivered: `setup.sh` (macOS/Linux install script mirroring setup.ps1: venv + console-script install, interactive or silent config, launchd job on macOS), updated `docs/install-cli.md` and `README.md` with macOS/Linux sections, `docs/decisions.md` entry, `.gitattributes` `*.sh eol=lf` rule, and 3 tests in `tests/unit/test_setup_sh.py`. Quality state: ruff clean, mypy 0 errors, bandit 0 Medium/High, 1055 passed (3 new), coverage 74.29%.
 
 ---
 
@@ -18,10 +18,9 @@ Session 2026-06-16 (autopilot): completed `p1-security-core`. The six runtime CV
 
 **Cross-platform decision (2026-06-12):** owner committed to making PostMule run on Windows and macOS, and to rewriting the harness in Python per the template. Build plan: ops `PLAN.md` §16 (two tracks: A = PostMule itself OS-agnostic, scoped by #105; B = Python harness in ops `harness/`, deferred past v0.1.0 per the MVP review). Track B step 1 (the dependency-free Python core, 55 tests) stays as already-built; the PowerShell harness in ops `scripts/` is frozen and ships v0.1.0.
 
-**P1 queue:** p1-security-core done. Remaining pending: p1-macos-install-contract (blocked on pre-commit hook bug) and p1-self-audit. Quality state as of 2026-06-16: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1052 passed.
+**P1 queue:** p1-macos-install-contract done. Remaining pending: p1-self-audit. Quality state as of 2026-06-16: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1055 passed.
 
 **Blocked (needs owner action before next autopilot run can advance):**
-- `p1-macos-install-contract` (pending in queue, attempts=0): work complete (setup.sh, docs, tests) but blocked on pre-commit hook bug (ops #14, proposals/pre-commit-hook-splat-bug.md). Completed work preserved in recovery branches tracked by ops #18.
 - `p1-ocr-tesseract` (needs-owner): OCR per-OS Tesseract detection and clear error messaging.
 - pip 26.0.1 CVEs (3 remaining): pip cannot self-upgrade via `pip install -r requirements.txt`; deferred until safe-pip.ps1 targets the venv Python. All other runtime CVEs cleared.
 - Gate-1 coverage floor: the ops gate script still requires ≥80%; proposal to align it with the measured 74% floor is at `ops/proposals/gate-1-coverage-floor.md`.
