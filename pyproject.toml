@@ -68,6 +68,12 @@ addopts = "--cov=postmule --cov-report=term-missing --cov-fail-under=74"
 line-length = 100
 target-version = ["py311"]
 
+[tool.mypy]
+
+[[tool.mypy.overrides]]
+module = ["yaml", "requests", "requests.*"]
+ignore_missing_imports = true
+
 [tool.ruff]
 line-length = 100
 
