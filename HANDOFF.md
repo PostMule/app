@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-19 (autopilot, gate-only run, twenty-sixth run): no queue tasks were pending. Same three newest recovery branches (20260615-082236, 20260615-102435, 20260615-160801) — already documented in prior runs (ops #13, #27, #28), no cherry-picks needed. Ran gate-1-code-green.ps1; failed on the same check categories as prior runs. Regenerated ops/telemetry/quality-report.md. Gate failures: (1) coverage 74.29% vs 80% floor — proposal at ops/proposals/gate-1-coverage-floor.md; (2) ruff 159 errors outside postmule/ — postmule/ surface clean; (3) mypy 0 errors but non-zero exit (missing type stubs); (4) bandit 30 Low findings, 0 Medium/High; (5) pip 26.0.1 CVEs (3) — blocked on p1-fix-safe-pip (needs-owner); (6) eight open issues (#30, #87, #91, #93, #96, #97, #104, #107) lack `blocked:human` or `post-release` labels.
+Session 2026-06-19 (autopilot, gate-only run, twenty-seventh run): no queue tasks were pending. Same three recovery branches (20260615-082236, 20260615-102435, 20260615-160801) — already documented in ops #13, #27, #28, no cherry-picks needed. Ran gate-1-code-green.ps1; same failures as prior runs. Regenerated ops/telemetry/quality-report.md. Gate failures: (1) coverage 74.29% vs 80% floor — proposal at ops/proposals/gate-1-coverage-floor.md; (2) ruff errors outside postmule/ — postmule/ surface clean; (3) mypy non-zero exit (missing type stubs); (4) bandit Low findings only; (5) pip 26.0.1 CVEs (3) — blocked on p1-fix-safe-pip (needs-owner); (6) eight open issues (#30, #87, #91, #93, #96, #97, #104, #107) lack `blocked:human` or `post-release` labels.
 
 ---
 
