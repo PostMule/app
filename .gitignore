@@ -204,6 +204,9 @@ config.yaml
 # Claude Code — local user overrides only; project settings.json is committed
 .claude/settings.local.json
 
+# Autopilot wrapper runtime state (lock file + run logs) — never committed
+.harness/
+
 # Test artifacts
 coverage.json
 
