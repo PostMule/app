@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Session 2026-06-21 (autopilot, gate-only run): empty queue, mode=normal, phase=1. Re-inspected the 3 newest recovery branches (20260621-060055, 20260620-221517, 20260615-160801) — the two newest are stale pre-fix snapshots that remove the `.harness/` gitignore lines main already has; no usable work, already documented. Tree clean. Ran gate-1-code-green.ps1 (exit 1) and regenerated ops/telemetry/quality-report.md. The earlier "working tree dirty" failure is gone (the `.harness/` gitignore fix from last run holds). All remaining gate failures are needs-owner and unchanged: (1) coverage 74.29% vs 80% floor — proposal at ops/proposals/gate-1-coverage-floor.md; (2) ruff not clean (errors outside postmule/, which is clean); (3) mypy exit non-zero; (4) bandit 0 High/Medium but gate fails on any output; (5) pip 26.0.1 CVEs — blocked on p1-fix-safe-pip; (6) CI for HEAD not green (no run found); (7) eight open issues (#30, #87, #91, #93, #96, #97, #104, #107) lack `blocked:human`/`post-release` labels.
+Session 2026-06-21 (autopilot, mode=normal, phase=1): completed owner-intake task owner-39. `harness/config.example.toml` shipped `CADENCE_HOURS=2.5` + `RUN_TIMEOUT_MIN=120`, which fails validate_config's `4*RUN <= 3*CADENCE_MINUTES` invariant (480 > 450), so a verbatim copy of the template raised ConfigError during bring-up. Fix (ops repo): lowered RUN_TIMEOUT_MIN to 110 (440 <= 450), kept the 2.5h cadence to stay aligned with register.py's default; added a conformance test (`test_shipped_example_validates`) that runs the shipped example through validate_config so it can't drift back, and documented the invariant inline. Harness suite green (275 passed), ruff + mypy clean. `approved/mvp-scope` confirmed present on origin, so the phase-1 single-task restriction did not apply. Decision logged in ops decisions.md. No app-repo code changes this run. No permission denials.
 
 ---
 
@@ -18,7 +18,7 @@ Session 2026-06-21 (autopilot, gate-only run): empty queue, mode=normal, phase=1
 
 **Cross-platform decision (2026-06-12):** owner committed to making PostMule run on Windows and macOS, and to rewriting the harness in Python per the template. Build plan: ops `PLAN.md` §16 (two tracks: A = PostMule itself OS-agnostic, scoped by #105; B = Python harness in ops `harness/`, deferred past v0.1.0 per the MVP review). Track B step 1 (the dependency-free Python core, 55 tests) stays as already-built; the PowerShell harness in ops `scripts/` is frozen and ships v0.1.0.
 
-**P1 queue:** All pending queue tasks are now needs-owner; no pending tasks remain. Quality state: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1055 passed.
+**P1 queue:** One pending owner-intake task remains: `owner-38` (harness: refuse to spawn an agent inside an interactive Claude session — CLAUDECODE guard + doctor check; ops issue #38). `owner-39` done this run. App quality state unchanged: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1055 passed.
 
 **Blocked (needs owner action before next autopilot run can advance):**
 - `p1-self-audit` (needs-owner): Complete implementation is at `ops/proposals/p1-self-audit-implementation.md` — requires owner session to apply governed files (`scripts/self-audit.ps1`, `scripts/watchdog.ps1` patch, `governance-baseline.lock` regen, `COMMANDS.md`).
