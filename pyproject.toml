@@ -61,8 +61,31 @@ packages = ["postmule"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=postmule --cov-report=term-missing --cov-fail-under=74"
-# Coverage floor: 74% measured 2026-06-15 after stub-providers. Proposal filed to align
-# gate-1-code-green.ps1 with this floor (ops proposals/gate-1-coverage-floor.md).
+# Dev regression floor (74%) is a loose guard. The authoritative bar is gate-1's two-tier
+# check (owner-approved Option B, 2026-06-22; ops proposals/gate-1-coverage-floor.md):
+# core (excl. web) >= 80% and web layer >= 54% (ratchets up; Flask route integration tests
+# are tracked post-release). The 14 inert provider stubs are omitted from the denominator below.
+
+[tool.coverage.run]
+# The 14 untested provider stubs are inert NotImplementedError shims (MVP scope review:
+# stubbed, not implemented). They carry no behavior to cover, so they are excluded from the
+# coverage denominator everywhere. Owner-approved 2026-06-22 (§14.12 denominator change).
+omit = [
+  "postmule/providers/email/imap.py",
+  "postmule/providers/email/outlook_365.py",
+  "postmule/providers/email/outlook_com.py",
+  "postmule/providers/email/proton.py",
+  "postmule/providers/llm/anthropic.py",
+  "postmule/providers/llm/openai.py",
+  "postmule/providers/mailbox/earth_class.py",
+  "postmule/providers/mailbox/postscan.py",
+  "postmule/providers/mailbox/traveling_mailbox.py",
+  "postmule/providers/spreadsheet/airtable.py",
+  "postmule/providers/spreadsheet/excel_online.py",
+  "postmule/providers/storage/dropbox.py",
+  "postmule/providers/storage/onedrive.py",
+  "postmule/providers/storage/s3.py",
+]
 
 [tool.black]
 line-length = 100
