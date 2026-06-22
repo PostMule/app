@@ -1,13 +1,8 @@
 """Unit tests for postmule.agents.email_ingestion."""
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from postmule.agents.email_ingestion import (
-    IngestionResult,
-    IngestedPDF,
     _sanitize_filename,
     run_ingestion,
 )

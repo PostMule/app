@@ -1,10 +1,6 @@
 """Unit tests for postmule.agents.integrity.duplicate_detector."""
 
-import json
-from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 from postmule.agents.integrity.duplicate_detector import (
     find_duplicates_in_folder,

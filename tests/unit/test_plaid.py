@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from postmule.providers.finance.plaid import PlaidProvider, _ENVIRONMENTS
 from postmule.providers.finance.base import BankTransaction
+from postmule.providers.finance.plaid import _ENVIRONMENTS, PlaidProvider
 
 
 class TestPlaidProviderInit:

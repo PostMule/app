@@ -1,6 +1,5 @@
 """Unit tests for postmule.data.search."""
 
-import pytest
 
 from postmule.data.bills import add_bill
 from postmule.data.forward_to_me import add_item as add_forward_to_me

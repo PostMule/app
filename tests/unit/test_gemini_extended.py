@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from postmule.providers.llm.gemini import ClassificationResult, GeminiProvider, _safe_float
+from postmule.providers.llm.gemini import GeminiProvider, _safe_float
 
 
 class TestSafeFloat:

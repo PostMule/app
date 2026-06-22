@@ -3,8 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from postmule.agents.classification import (
     CATEGORY_FOLDERS,
     ProcessedMail,

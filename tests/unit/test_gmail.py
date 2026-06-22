@@ -1,12 +1,9 @@
 """Unit tests for postmule.providers.email.gmail."""
 
 import base64
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from postmule.providers.email.gmail import (
-    EmailMessage,
     GmailProvider,
     _flatten_parts,
     _parse_email_date,

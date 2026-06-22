@@ -2,11 +2,8 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from postmule.agents.integrity.integrity_verifier import run_integrity_check
 from postmule.data import bills as bills_data
-from postmule.data import notices as notices_data
 
 
 def _make_drive(files_per_folder=None):

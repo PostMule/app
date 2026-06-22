@@ -7,7 +7,6 @@ import pytest
 
 from postmule.providers.finance.simplifi import (
     BankTransaction,
-    BillMatchResult,
     SimplifiProvider,
     match_bills_to_transactions,
 )
@@ -179,7 +178,6 @@ class TestMatchBillsToTransactions:
         assert matches == []
 
     def test_date_tolerance_allows_late_posting(self):
-        from datetime import timedelta
         today = date.today()
         bill = self._make_bill(due_date=today.isoformat())
         txn = self._make_txn(txn_date=(today + timedelta(days=2)).isoformat())
@@ -188,7 +186,6 @@ class TestMatchBillsToTransactions:
         assert matches[0].confidence == "fuzzy_date"
 
     def test_date_tolerance_zero_rejects_late_posting(self):
-        from datetime import timedelta
         today = date.today()
         bill = self._make_bill(due_date=today.isoformat())
         txn = self._make_txn(txn_date=(today + timedelta(days=1)).isoformat())
@@ -196,7 +193,6 @@ class TestMatchBillsToTransactions:
         assert matches == []
 
     def test_fuzzy_both_confidence(self):
-        from datetime import timedelta
         today = date.today()
         bill = self._make_bill(amount=94.00, due_date=today.isoformat())
         txn = self._make_txn(amount=-94.10, txn_date=(today + timedelta(days=1)).isoformat())

@@ -7,9 +7,8 @@ Covers: send_bill_due_alert, _html_to_text, _send_email
 from __future__ import annotations
 
 import smtplib
-import ssl
 from datetime import date, timedelta
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -18,7 +17,6 @@ from postmule.agents.summary import (
     _send_email,
     send_bill_due_alert,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

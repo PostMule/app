@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from postmule.data.forward_to_me import (
     add_item,
     get_pending_items,

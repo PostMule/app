@@ -1,14 +1,9 @@
 """Unit tests for postmule.agents.bill_email_intake."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from postmule.agents.bill_email_intake import _build_filename, run_intake
-from postmule.agents.email_ingestion import IngestionResult
 from postmule.providers.email.base import EmailMessage
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -158,7 +153,7 @@ class TestRunIntakeDryRun:
         provider = _make_provider(emails=[email])
         drive = _make_drive()
 
-        result = run_intake(provider, drive, "inbox-id", tmp_path, dry_run=True)
+        run_intake(provider, drive, "inbox-id", tmp_path, dry_run=True)
 
         drive.upload_pdf.assert_not_called()
         provider.mark_as_processed.assert_not_called()
@@ -239,7 +234,7 @@ class TestRunIntakeErrors:
         # First upload OK, second fails
         drive.upload_pdf.side_effect = [MagicMock(return_value="drv-1"), IOError("fail")]
 
-        result = run_intake(provider, drive, "inbox-id", tmp_path)
+        run_intake(provider, drive, "inbox-id", tmp_path)
 
         provider.mark_as_processed.assert_not_called()
 
@@ -252,8 +247,10 @@ class TestPipelineBillIntakeIntegration:
     """Verify that pipeline step 1b calls run_intake for each bill_intake provider."""
 
     def test_pipeline_calls_intake_for_each_bill_provider(self, tmp_path):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock
+
         import yaml
+
         from postmule.core.config import load_config
         from postmule.pipeline import Providers, run_daily_pipeline
 
@@ -298,8 +295,10 @@ class TestPipelineBillIntakeIntegration:
         bp2.list_emails_with_pdf_attachments.assert_called_once()
 
     def test_pipeline_skips_intake_when_no_bill_providers(self, tmp_path):
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock
+
         import yaml
+
         from postmule.core.config import load_config
         from postmule.pipeline import Providers, run_daily_pipeline
 

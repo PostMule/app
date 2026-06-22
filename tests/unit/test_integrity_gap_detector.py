@@ -2,8 +2,6 @@
 
 from datetime import date, timedelta
 
-import pytest
-
 from postmule.agents.integrity.gap_detector import find_processing_gaps
 from postmule.data.run_log import append_run
 

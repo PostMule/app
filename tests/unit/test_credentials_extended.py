@@ -10,11 +10,9 @@ Covers: save_master_password, load_master_password, load_credentials,
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 from postmule.core.credentials import (
     CredentialsError,

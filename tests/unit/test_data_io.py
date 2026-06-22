@@ -2,8 +2,6 @@
 
 from datetime import date
 
-import pytest
-
 from postmule.data._io import atomic_write, recent_years, year_from
 
 

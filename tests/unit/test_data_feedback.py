@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
-import pytest
 
 from postmule.data.feedback import append_feedback, list_feedback
 

@@ -1,7 +1,6 @@
 """Unit tests for postmule.providers.storage.google_drive."""
 
 import hashlib
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

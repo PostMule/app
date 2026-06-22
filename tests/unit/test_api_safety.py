@@ -1,13 +1,12 @@
 """Unit tests for postmule.core.api_safety."""
 
 import json
-from pathlib import Path
 
 import pytest
 
 from postmule.core.api_safety import (
-    APISafetyAgent,
     APILimitError,
+    APISafetyAgent,
     ProviderLimits,
     build_safety_agent,
 )

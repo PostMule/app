@@ -1,9 +1,7 @@
 """Unit tests for postmule.agents.summary."""
 
 from datetime import date, timedelta
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from postmule.agents.summary import (
     _build_email_context,

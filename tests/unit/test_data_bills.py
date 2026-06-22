@@ -1,10 +1,8 @@
 """Unit tests for postmule.data.bills."""
 
-from pathlib import Path
 
-import pytest
 
-from postmule.data.bills import add_bill, find_bill, load_bills, save_bills, to_sheet_rows, update_bill_status
+from postmule.data.bills import add_bill, find_bill, load_bills, to_sheet_rows, update_bill_status
 
 
 def test_add_and_load(tmp_path):

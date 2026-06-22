@@ -6,11 +6,14 @@ All tests use a temporary directory — no side effects outside tmp_path.
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 import pytest
 
-from postmule.providers.spreadsheet.sqlite import SqliteSpreadsheetProvider, _safe_identifier, _pad_row
+from postmule.providers.spreadsheet.sqlite import (
+    SqliteSpreadsheetProvider,
+    _pad_row,
+    _safe_identifier,
+)
 
 
 @pytest.fixture

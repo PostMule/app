@@ -2,9 +2,6 @@
 
 import logging
 from datetime import date, timedelta
-from pathlib import Path
-
-import pytest
 
 from postmule.core.logging_setup import (
     _prune_processing_logs,

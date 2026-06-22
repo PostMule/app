@@ -51,7 +51,7 @@ class TestTestGmail:
 
     def test_successful_login_returns_ok(self, client):
         mock_conn = MagicMock()
-        with patch("imaplib.IMAP4_SSL", return_value=mock_conn) as mock_imap:
+        with patch("imaplib.IMAP4_SSL", return_value=mock_conn):
             r = _post(client, "/setup/api/test-gmail", {
                 "gmail_address": "user@gmail.com",
                 "app_password": "abcd efgh ijkl mnop",
@@ -87,7 +87,7 @@ class TestTestGmail:
     def test_whitespace_trimmed_from_inputs(self, client):
         mock_conn = MagicMock()
         with patch("imaplib.IMAP4_SSL", return_value=mock_conn):
-            r = _post(client, "/setup/api/test-gmail", {
+            _post(client, "/setup/api/test-gmail", {
                 "gmail_address": "  user@gmail.com  ",
                 "app_password": "  abcd efgh  ",
             })
@@ -136,7 +136,7 @@ class TestTestGemini:
 
     def test_key_whitespace_trimmed(self, client):
         with patch("postmule.web.routes.setup._probe_gemini_key", return_value=(True, None)) as mock_probe:
-            r = _post(client, "/setup/api/test-gemini", {"gemini_key": "  AIzaSyFake123  "})
+            _post(client, "/setup/api/test-gemini", {"gemini_key": "  AIzaSyFake123  "})
         mock_probe.assert_called_once_with("AIzaSyFake123")
 
 

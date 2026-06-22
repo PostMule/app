@@ -85,3 +85,7 @@ select = ["E", "F", "W", "I"]
 # cannot be broken without corrupting the string content.
 "postmule/agents/summary.py" = ["E501"]
 "postmule/providers/llm/gemini.py" = ["E501"]
+# Test files: long lines are typically fixture data, expected-output literals, and
+# assertion messages where wrapping hurts readability more than it helps. Line length
+# is low-value in tests; the package itself stays held to the 100-char limit.
+"tests/**" = ["E501"]

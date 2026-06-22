@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from postmule.providers.finance.monarch import MonarchProvider
 from postmule.providers.finance.base import BankTransaction
+from postmule.providers.finance.monarch import MonarchProvider
 
 
 class TestMonarchProviderInit:

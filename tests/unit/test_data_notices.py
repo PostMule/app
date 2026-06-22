@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from postmule.data.notices import (
     add_notice,
     load_notices,
@@ -99,7 +97,7 @@ class TestFindNotice:
 
     def test_finds_notice_by_id(self, tmp_path):
         from postmule.data.notices import find_notice
-        added = add_notice(tmp_path, {"id": "target-id", "date_received": "2025-03-01", "sender": "IRS"})
+        add_notice(tmp_path, {"id": "target-id", "date_received": "2025-03-01", "sender": "IRS"})
         result = find_notice(tmp_path, "target-id")
         assert result is not None
         assert result["sender"] == "IRS"

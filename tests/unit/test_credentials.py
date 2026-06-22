@@ -14,7 +14,6 @@ from postmule.core.credentials import (
     save_credential,
 )
 
-
 MASTER_PASSWORD = "test-master-password-123"
 
 
@@ -69,7 +68,9 @@ class TestEncryptDecrypt:
 
     def test_non_dict_content_raises(self, tmp_path):
         # Build a .enc from a YAML list (not a dict)
-        import os, base64
+        import base64
+        import os
+
         from cryptography.fernet import Fernet
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -102,7 +103,9 @@ class TestDeriveKey:
 class TestSaveCredential:
     def _make_enc(self, tmp_path, data: dict) -> Path:
         """Helper: write a dict to credentials.enc."""
-        import os, base64
+        import base64
+        import os
+
         from cryptography.fernet import Fernet
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC

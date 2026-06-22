@@ -3,18 +3,17 @@
 import io
 import json
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 import postmule.web.app as web_app
-from postmule.web.app import app, create_app
 from postmule.data import bills as bills_data
 from postmule.data import entities as entity_data
 from postmule.data import forward_to_me as ftm_data
 from postmule.data import notices as notices_data
 from postmule.data import run_log as run_log_data
+from postmule.web.app import create_app
 
 
 @pytest.fixture
@@ -454,8 +453,8 @@ class TestMailOwnerRoute:
         assert saved[0].get("owner_ids") == [owner["id"]]
 
     def test_set_owner_ids_on_notice(self, client, data_dir):
-        from datetime import date
         import json as _json
+        from datetime import date
         notice = notices_data.add_notice(data_dir, {
             "date_received": date.today().isoformat(),
             "sender": "IRS",
@@ -1002,7 +1001,6 @@ class TestApiReportsExport:
     def test_export_no_results_returns_404(self, data_dir, tmp_path):
         """When storage is configured but no items have drive_file_id, return 404."""
         import postmule.web.routes.api as api_module
-        import postmule.web.app as app_module
         original = getattr(api_module, "_get_storage_provider", None)
 
         class FakeStorage:
@@ -1025,6 +1023,7 @@ class TestApiReportsExport:
     def test_export_returns_zip(self, data_dir):
         """When items with drive_file_ids exist and storage works, return a zip."""
         import zipfile as _zipfile
+
         import postmule.web.routes.api as api_module
 
         bills_data.add_bill(data_dir, {

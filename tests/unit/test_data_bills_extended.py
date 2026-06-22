@@ -9,24 +9,22 @@ Covers: mark_bill_alerted, update_bill_status not-found,
 from __future__ import annotations
 
 import json
-import os
 from datetime import date
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
+from postmule.data._io import atomic_write as _atomic_write
+from postmule.data._io import recent_years as _recent_years
+from postmule.data._io import year_from as _year_from
 from postmule.data.bills import (
     add_bill,
     find_bill,
     load_bills,
     mark_bill_alerted,
-    save_bills,
     to_sheet_rows,
     update_bill_status,
 )
-from postmule.data._io import atomic_write as _atomic_write, year_from as _year_from, recent_years as _recent_years
-
 
 # ---------------------------------------------------------------------------
 # mark_bill_alerted
@@ -170,7 +168,7 @@ class TestAddBillEdgeCases:
         assert bill["id"] != ""
 
     def test_defaults_to_current_year_when_no_date(self, tmp_path):
-        bill = add_bill(tmp_path, {"sender": "Unknown"})
+        add_bill(tmp_path, {"sender": "Unknown"})
         current_year = date.today().year
         assert (tmp_path / f"bills_{current_year}.json").exists()
 

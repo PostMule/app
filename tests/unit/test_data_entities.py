@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from postmule.data.entities import (
     CATEGORIES,
     SCHEMA_VERSION,
@@ -14,7 +12,6 @@ from postmule.data.entities import (
     is_denied,
     load_entities,
     mask_account_number,
-    migrate_entity,
     process_auto_approvals,
     propose_alias_match,
     update_entity_field,
@@ -163,7 +160,7 @@ def test_validate_friendly_name_unique_passes_for_new(tmp_path):
 
 
 def test_validate_friendly_name_unique_rejects_duplicate(tmp_path):
-    e = add_entity(tmp_path, "AT&T", "biller", friendly_name="AT&T Mobile")
+    add_entity(tmp_path, "AT&T", "biller", friendly_name="AT&T Mobile")
     entities = load_entities(tmp_path)
     assert validate_friendly_name_unique(entities, "AT&T Mobile") is False
 

@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from postmule.data.entity_corrections import (
     correction_summary,
     load_corrections,

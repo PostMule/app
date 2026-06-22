@@ -1,9 +1,8 @@
 """Unit tests for postmule.agents.entity_discovery."""
 
-import pytest
 
 from postmule.agents.entity_discovery import run_entity_discovery, seed_known_entities
-from postmule.data.entities import add_entity, get_all_known_names, load_entities
+from postmule.data.entities import add_entity, load_entities
 
 
 def test_seed_known_entities(tmp_path):
@@ -30,7 +29,7 @@ def test_exact_match(tmp_path):
 
 
 def test_alias_match(tmp_path):
-    entity = add_entity(tmp_path, "Alice Smith", "Person")
+    add_entity(tmp_path, "Alice Smith", "Person")
     from postmule.data.entities import load_entities, save_entities
     entities = load_entities(tmp_path)
     entities[0]["aliases"] = ["Alice Smith", "Alice"]

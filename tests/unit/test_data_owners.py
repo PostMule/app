@@ -2,10 +2,7 @@
 
 import json
 
-import pytest
-
 from postmule.data.owners import (
-    OWNER_TYPES,
     add_owner,
     deactivate_owner,
     get_owner,

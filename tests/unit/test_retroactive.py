@@ -3,10 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
-from postmule.agents.retroactive import run_retroactive, _store_record
 from postmule.agents.classification import ProcessedMail
+from postmule.agents.retroactive import _store_record, run_retroactive
 from postmule.providers.llm.gemini import ClassificationResult
 
 

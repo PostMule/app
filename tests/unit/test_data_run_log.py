@@ -1,8 +1,6 @@
 """Unit tests for postmule.data.run_log."""
 
-from pathlib import Path
 
-import pytest
 
 from postmule.data.run_log import (
     append_run,
