@@ -23,8 +23,8 @@ Autopilot run 2026-06-22 (phase=1, normal): empty backlog (owner-38/owner-39 bot
 **Blocked (needs owner action before next autopilot run can advance):**
 - `p1-self-audit` (needs-owner): Complete implementation is at `ops/proposals/p1-self-audit-implementation.md` — requires owner session to apply governed files (`scripts/self-audit.ps1`, `scripts/watchdog.ps1` patch, `governance-baseline.lock` regen, `COMMANDS.md`).
 - `p1-ocr-tesseract` (needs-owner): OCR per-OS Tesseract detection and clear error messaging.
-- pip 26.0.1 CVEs (3 remaining): pip cannot self-upgrade via `pip install -r requirements.txt`; deferred until safe-pip.ps1 targets the venv Python. All other runtime CVEs cleared.
-- Gate-1 coverage floor: the ops gate script still requires ≥80%; proposal to align it with the measured 74% floor is at `ops/proposals/gate-1-coverage-floor.md`.
+- ~~pip 26.0.1 CVEs~~ RESOLVED 2026-06-22: pip upgraded to 26.1.2 in the venv and msgpack 1.2.0→1.2.1 (lock + requirements floor); `pip-audit` reports no known vulnerabilities. (The separate safe-pip.ps1-targets-global-Python issue remains, ops #11.)
+- ~~Gate-1 coverage floor (align to 74%)~~ SUPERSEDED 2026-06-22 by Option B (owner-approved): two-tier gate, core (excl. web) ≥80% (met, 83%) + web ≥54% (ratchets up); implemented in `gate-1-code-green.ps1` + app pyproject. Remaining gate-1 blockers are now the bandit-severity bar (ops #54) and the `.exe` exit-flake (#47) — see `ops/proposals/gate-1-bandit-severity-and-exit-flake.md`.
 
 **Recommended (owner-attended):** Run the pre-P1 product premortem from `mvp-review.md` section 3 — a focused `council-this` session scoped to runtime/operational failure modes (cloud-LLM dependency, token cost, pipeline runtime failures), not a re-run of the 2026-04-04 architecture council. This sits beside the P1 queue, not inside it.
 
