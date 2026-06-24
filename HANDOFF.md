@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Owner session 2026-06-23: unblocked P1 and locked the v0.1.0 end-state plan. The two governed gate-1 blockers are fixed in ops `9f8e6db` — `bandit` now runs `--severity-level medium` (30 Low findings are within the documented 0 Medium/High bar) and ruff/mypy/bandit/pip-audit invoke via `python -m <module>` instead of the venv `.exe` shims (kills the setuptools launcher exit-code flake). Verified against the live venv; governance re-pinned. Closed ops #54, #47. Owner set the direction (decisions.md, ops 2026-06-23): ship v0.1.0 on the approved fixture scope, drive P1→P3 RC autonomously, owner tags `approved/v0.1.0` only; automated planning stage (#53) approved as a governed owner-session build. Ship premortem run (runtime/operational): v0.1.0 is safe on existing invariants; risks are post-release hardening (#110/#111/#112).
+Owner session 2026-06-23: a 5-persona ship council overturned the earlier "v0.1.0 is safe to ship" verdict (confidences 15/32/35/45/55%). The deal-breaker: the single E2E ship gate (`scripts/e2e_fixture_run.py`) is a **tautology** — its fixture classifier returns a hardcoded amount/date ignoring the OCR text, and the gate asserts the stored value equals that same constant; it also files via LocalStorage, never the real `google_drive` MD5/audit path. Eight more blockers filed: Tesseract not bundled (#114), pipeline crash→Drive/JSON divergence + no lock (#115), LLM cost ceiling off-by-default + unreachable monthly logic (#116), secrets/PII egress to the public repo (#117), bill-match "exact date" vs 7-day-tolerance spec mismatch (#118), `_graph.py` 0% + OData injection (#119), no Gemini consent (#120), no test CI / non-reproducible build / coarse coverage gate (#121); gate rebuild is #113. Owner re-scoped (decisions.md): **Windows-only**, **fix all of #113–#121 before tag**, **autopilot-driven after the planning stage (#53) is built**. Earlier this session also fixed the P1 gate bandit/`.exe` blockers (ops 9f8e6db, closed #54/#47). **Autopilot is PAUSED** (ops STATE.paused=true, ops #58) until the harness upgrade lands.
 
 ---
 
@@ -16,26 +16,22 @@ Owner session 2026-06-23: unblocked P1 and locked the v0.1.0 end-state plan. The
 > Check `gh issue list --repo PostMule/app` for current state before starting.
 > Do not suggest or offer to work on blocked or deferred issues — only note they exist.
 
-**Autonomous drive to v0.1.0 RC is unblocked.** Run the status board any time for a token-free view: `powershell -NoProfile -ExecutionPolicy Bypass -File PostMule-ops/v01-status.ps1`.
+**The autopilot is paused. Do not resume it by running gates** — gate-1 issue-hygiene is now correctly red (9 open ship-blockers), and there is no planning stage yet, so a run would only spin red. Resume condition is in ops #58.
 
-- **P1 → next empty-backlog run runs `gate-1-code-green.ps1`, which should now PASS** (all bars green: 1055 tests pass, two-tier coverage floors met, ruff/mypy/bandit/pip-audit clean, CI green, mvp-scope tag present, issues allowlisted) and seed `p2-sandbox-driver`.
-- **P2 install** — autopilot builds `validation/sandbox-install.wsb` + driver, runs it in Windows Sandbox (present on this machine), emits `INSTALL_SMOKE_PASS`, closes #96. Self-driving.
-- **P3 RC** — changelog/version bump, simplify pass, E2E fixture `E2E_PASS`, push `v0.1.0-rc.N`, gate-3. One gap: the agent is denied `git tag v*`, so the rc-tag push needs the owner-session fix in **ops #57** (small allowlisted script) before `p3-rc-tag` can run.
-- **P4 release** — owner tags `approved/v0.1.0` on the rc commit; `harness/release.py` then releases (production-wiring review: #33).
+**Build order (owner-session, governed — the autopilot cannot self-apply these):**
+1. **Planning stage #53** — per `PostMule-ops/proposals/automated-planning-stage-and-escalation-rescope.md`. Governed/TDD: task lifecycle `pending→planning→planned→in-progress→done` (harness/state.py), read-only Opus `plan` run-mode that expands + runs premortem/critic debate, the deterministic plan-gate linter, wiring in wrapper/classify/gates/register + AUTOPILOT.md, re-baseline.
+2. **#56** stuck-detector + Dashboard "Needs owner" fix, **#57** rc-tag push script. Autonomy is unsafe without these (the harness stalls silently — it just spun 13 noops).
+3. Set ops `STATE.paused=false`, close ops #58. The autopilot then **self-plans #113–#122 and drives the hardening** against the rebuilt real gate.
 
-**Owner-session work (governed — autopilot cannot self-apply):** ops #53 (automated planning stage), ops #56 (Dashboard "Needs owner" blind to an owner-blocked gate), ops #57 (rc-tag push script), #33 (release.py review).
+**v0.1.0 ship-blockers (the autopilot's backlog once it resumes):** #113 (rebuild the tautological ship gate — keystone), #114 Tesseract bundling, #115 crash/divergence + lock, #116 cost ceiling, #117 secret/PII egress gate, #118 match-spec, #119 `_graph`, #120 Gemini consent, #121 CI/reproducible-build/coverage-gate/rollback, #122 de-scope macOS to Windows-only.
 
-**Post-release backlog (deferred, not blocking v0.1.0):**
-- #110 — harden Gemini classification runtime failure → safe-skip, never misfile (ship premortem)
-- #111 — runtime safety audit: api_safety batch/backoff + Drive mid-batch idempotency (ship premortem)
-- #112 — first-run doctor self-check: scheduler / Tesseract / data-dir writable (ship premortem)
-- #109 — Flask web-route integration tests (lift web coverage toward 80%)
-- #108/#107/#104/#97 — E2E fixture notifier, dashboard Windows-only copy, expert personas, cloud deploy
-- #30/#93 — live validation against real Gmail/VPM/Gemini/Drive (owner-credentialed, post-release)
+**Quality bar (from the council):** risk-based, not flat — near-100% branch coverage on `pipeline.py`, the `google_drive` execute→MD5-verify→audit/soft-delete path, and bill-matching; the gate must assert behaviours (OCR ran, MD5 verified, no auto-delete), not an aggregate number. Web UI coverage stays deferred (#109).
 
-**Blocked:human (need the owner, not the autopilot):** #96 (covered by the automated P2 sandbox run), #91 (DNS), #87 (logo vectorize).
+**Honest definition of done (corrected):** v0.1.0 also requires ONE supervised real-email run by the owner (~15 min, owner credentials + the judgment that the right file landed in Drive) — "owner only tags" was over-claimed.
+
+**Post-release (deferred, not blocking):** #30/#93 live validation, #97/#104/#107/#108/#109 + #110/#111/#112 (the earlier premortem items, now folded into the hardening set where they overlap). **Blocked:human:** #91 DNS, #87 logo.
 
 ---
 
 ## Active Design Decisions
-> Maintained in `docs/decisions.md` (product) and `PostMule-ops/decisions.md` (harness/process). Check there for the current list.
+> Maintained in `docs/decisions.md` (product) and `PostMule-ops/decisions.md` (harness/process).
