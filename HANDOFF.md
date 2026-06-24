@@ -7,7 +7,7 @@
 ## Last Completed
 > Maintenance: before adding a new entry, delete the previous one. One issue max. Full history is in `git log`.
 
-Autopilot run 2026-06-23 (phase=1, normal): empty backlog (owner-38/owner-39 both done), no recovery branch, both trees clean and current with origin, `approved/mvp-scope` tag confirmed on the app origin. Ran the exact gate (`scripts/gates/gate-1-code-green.ps1` in ops) — **exit 1**, red on the same two governed blockers and nothing else: `mypy.exe not clean` (ops #47, the PS-5.1 `2>&1 | Out-Null` pipeline artifact — mypy's real verdict is clean; it flagged this run, pip-audit came back clean, consistent with the intermittent-flake diagnosis) and `bandit.exe not clean` (ops #54, `bandit -q` exits 1 on any finding: 30 Low / 0 Med / 0 High; the documented "0 Medium/High" bar is met). Regenerated `telemetry/quality-report.md` per Step 2; only the timestamp differed, so reverted rather than push churn — findings unchanged (mypy 0, bandit 30 Low / 0 Med / 0 High, 0 dep vulns, coverage 75.30% over the 74% floor, 1055 passed / 2 skipped). Verified the owner-unblock proposal (`PostMule-ops/proposals/gate-1-bandit-severity-and-exit-flake.md`) still accurately describes both fixes and is ready to apply. No code edits, no queue task; `noop_streak`/`last_run` left to the wrapper. 13th consecutive noop; autopilot has no in-scope move — both blockers sit on the governed surface, which only an owner session may edit. **Owner next (only path to unblock):** apply the two governed gate fixes from that proposal (bandit `--severity-level medium`; mypy capture `$LASTEXITCODE` without the stderr-merged `Out-Null` pipe), re-pin the baseline if caged; then gate-1 passes and seeds `p2-sandbox-driver` for #96. Standing decision still open: ops #53 (automated planning stage) needs sign-off + cage re-pin.
+Owner session 2026-06-23: unblocked P1 and locked the v0.1.0 end-state plan. The two governed gate-1 blockers are fixed in ops `9f8e6db` — `bandit` now runs `--severity-level medium` (30 Low findings are within the documented 0 Medium/High bar) and ruff/mypy/bandit/pip-audit invoke via `python -m <module>` instead of the venv `.exe` shims (kills the setuptools launcher exit-code flake). Verified against the live venv; governance re-pinned. Closed ops #54, #47. Owner set the direction (decisions.md, ops 2026-06-23): ship v0.1.0 on the approved fixture scope, drive P1→P3 RC autonomously, owner tags `approved/v0.1.0` only; automated planning stage (#53) approved as a governed owner-session build. Ship premortem run (runtime/operational): v0.1.0 is safe on existing invariants; risks are post-release hardening (#110/#111/#112).
 
 ---
 
@@ -16,32 +16,26 @@ Autopilot run 2026-06-23 (phase=1, normal): empty backlog (owner-38/owner-39 bot
 > Check `gh issue list --repo PostMule/app` for current state before starting.
 > Do not suggest or offer to work on blocked or deferred issues — only note they exist.
 
-**Cross-platform decision (2026-06-12):** owner committed to making PostMule run on Windows and macOS, and to rewriting the harness in Python per the template. Build plan: ops `PLAN.md` §16 (two tracks: A = PostMule itself OS-agnostic, scoped by #105; B = Python harness in ops `harness/`, deferred past v0.1.0 per the MVP review). Track B step 1 (the dependency-free Python core, 55 tests) stays as already-built; the PowerShell harness in ops `scripts/` is frozen and ships v0.1.0.
+**Autonomous drive to v0.1.0 RC is unblocked.** Run the status board any time for a token-free view: `powershell -NoProfile -ExecutionPolicy Bypass -File PostMule-ops/v01-status.ps1`.
 
-**P1 queue:** No pending owner-intake tasks remain — `owner-38` done this run, `owner-39` done last run. The next normal-mode run with an empty backlog will run the phase-1 gate script and regenerate the quality report (the gate findings live in `telemetry/quality-report.md`, not the queue). App quality state unchanged: ruff clean (postmule/), mypy 0 errors, bandit 0 Medium/High, coverage 74.29%, pytest 1055 passed.
+- **P1 → next empty-backlog run runs `gate-1-code-green.ps1`, which should now PASS** (all bars green: 1055 tests pass, two-tier coverage floors met, ruff/mypy/bandit/pip-audit clean, CI green, mvp-scope tag present, issues allowlisted) and seed `p2-sandbox-driver`.
+- **P2 install** — autopilot builds `validation/sandbox-install.wsb` + driver, runs it in Windows Sandbox (present on this machine), emits `INSTALL_SMOKE_PASS`, closes #96. Self-driving.
+- **P3 RC** — changelog/version bump, simplify pass, E2E fixture `E2E_PASS`, push `v0.1.0-rc.N`, gate-3. One gap: the agent is denied `git tag v*`, so the rc-tag push needs the owner-session fix in **ops #57** (small allowlisted script) before `p3-rc-tag` can run.
+- **P4 release** — owner tags `approved/v0.1.0` on the rc commit; `harness/release.py` then releases (production-wiring review: #33).
 
-**Blocked (needs owner action before next autopilot run can advance):**
-- `p1-self-audit` (needs-owner): Complete implementation is at `ops/proposals/p1-self-audit-implementation.md` — requires owner session to apply governed files (`scripts/self-audit.ps1`, `scripts/watchdog.ps1` patch, `governance-baseline.lock` regen, `COMMANDS.md`).
-- `p1-ocr-tesseract` (needs-owner): OCR per-OS Tesseract detection and clear error messaging.
-- ~~pip 26.0.1 CVEs~~ RESOLVED 2026-06-22: pip upgraded to 26.1.2 in the venv and msgpack 1.2.0→1.2.1 (lock + requirements floor); `pip-audit` reports no known vulnerabilities. (The separate safe-pip.ps1-targets-global-Python issue remains, ops #11.)
-- ~~Gate-1 coverage floor (align to 74%)~~ SUPERSEDED 2026-06-22 by Option B (owner-approved): two-tier gate, core (excl. web) ≥80% (met, 83%) + web ≥54% (ratchets up); implemented in `gate-1-code-green.ps1` + app pyproject. Remaining gate-1 blockers are now the bandit-severity bar (ops #54) and the `.exe` exit-flake (#47) — see `ops/proposals/gate-1-bandit-severity-and-exit-flake.md`.
+**Owner-session work (governed — autopilot cannot self-apply):** ops #53 (automated planning stage), ops #56 (Dashboard "Needs owner" blind to an owner-blocked gate), ops #57 (rc-tag push script), #33 (release.py review).
 
-**Recommended (owner-attended):** Run the pre-P1 product premortem from `mvp-review.md` section 3 — a focused `council-this` session scoped to runtime/operational failure modes (cloud-LLM dependency, token cost, pipeline runtime failures), not a re-run of the 2026-04-04 architecture council. This sits beside the P1 queue, not inside it.
+**Post-release backlog (deferred, not blocking v0.1.0):**
+- #110 — harden Gemini classification runtime failure → safe-skip, never misfile (ship premortem)
+- #111 — runtime safety audit: api_safety batch/backoff + Drive mid-batch idempotency (ship premortem)
+- #112 — first-run doctor self-check: scheduler / Tesseract / data-dir writable (ship premortem)
+- #109 — Flask web-route integration tests (lift web coverage toward 80%)
+- #108/#107/#104/#97 — E2E fixture notifier, dashboard Windows-only copy, expert personas, cloud deploy
+- #30/#93 — live validation against real Gmail/VPM/Gemini/Drive (owner-credentialed, post-release)
 
-**In progress:** Live validation (#30) — PostMule installed and running at C:\Users\openclaw0123\PostMule. Dry runs pass clean. Next step: trigger a real run once a VPM scan notification email arrives.
-
-**Other open issues (blocked or post-release):**
-- #104 — Expert Directory (unblocked backlog work, not in the P1 queue; pick up post-v0.1.0 or as a gap-fill)
-- #101 — setup.ps1 Gemini regex bug (superseded by the #102 wizard)
-- #97 — Cloud deployment investigation (owner must decide platform/cost tradeoffs first)
-- #96 — Installer validation (blocked on the macOS install contract, future P1 task)
-- #93 — VPM API confirmation (requires live VPM account)
-- #91 — Configure DNS for postmule.com (manual registrar step)
-- #87 — Vectorize logo (requires designer/Illustrator)
-
-**Pending (not a code task):** Push a `v*` tag (e.g. `git tag v0.1.0 && git push origin v0.1.0`) to trigger the first release. After that, update README Option A to link to the Releases page instead of "coming soon".
+**Blocked:human (need the owner, not the autopilot):** #96 (covered by the automated P2 sandbox run), #91 (DNS), #87 (logo vectorize).
 
 ---
 
 ## Active Design Decisions
-> Maintained in `docs/decisions.md`. Check there for the current list.
+> Maintained in `docs/decisions.md` (product) and `PostMule-ops/decisions.md` (harness/process). Check there for the current list.
