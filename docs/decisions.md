@@ -4,6 +4,16 @@ Non-obvious decisions that would surprise a new contributor or be hard to infer 
 
 ---
 
+## Crash recovery across the Drive↔JSON boundary (2026-06-26)
+
+**The pipeline brackets each file's Drive move and JSON store with a write-ahead journal, and reconciles on the next run.** A crash between moving a file on Drive and writing its JSON record used to leave the file in a destination folder with no record (or a double-move on re-run). `postmule/data/journal.py` writes an entry (the intended destination, filename, category, and the exact record dict) atomically before the Drive move and removes it after the store commits. `postmule/agents/reconcile.py` runs at pipeline start and replays any leftover entry idempotently — using the stable Drive file id as the join key — without re-running OCR/LLM: it writes the missing record if the file already moved, redoes the move if not, and flags divergence (never deletes) if the file has vanished from Drive. The JSON store (`add_bill`/`add_notice`/`add_item`) is idempotent by a non-empty `drive_file_id`, so a replay or a double run cannot create a second record.
+
+Alternatives rejected: a stateless Drive-vs-JSON sweep (needs re-OCR/LLM to rebuild lost metadata — costs money, non-deterministic); moving the source of truth into SQLite/ACID (breaks the swappable-spreadsheet-provider design and the JSON-is-source-of-truth invariant); a Drive staging folder (extra round-trip per file, same crash window remains). Reconcile assumes Drive's stable-id semantics (ids survive move/rename); local storage changes ids on move, but Drive is the ship target (#122). Owner intake ops #62 / app #115.
+
+**A single-instance run lock prevents overlapping pipeline runs.** `postmule/core/run_lock.py` holds an `msvcrt` byte-range lock on a file under `data_dir` for the whole run; a scheduled run colliding with a manual run is refused (status `skipped`, no work). The OS releases the lock when the holder closes the handle or dies, so a crashed run leaves no stale lock to detect — chosen over a pidfile with liveness reclaim because a reliable dead-pid check on Windows is awkward (`os.kill(pid, 0)` terminates rather than probes). A run writes an `in-progress` run-log marker at start, finalized at end; reconcile relabels an orphaned marker `crashed`. Windows-only (`msvcrt` is stdlib, no new dependency). Dry runs perform no writes and skip the lock entirely.
+
+---
+
 ## Bill Matching
 
 **Company name is not used for matching.**
