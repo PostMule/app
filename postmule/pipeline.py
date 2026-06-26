@@ -17,16 +17,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from postmule.agents import bill_email_intake, email_ingestion, entity_discovery, mailbox_ingestion
+from postmule.agents import (
+    bill_email_intake,
+    email_ingestion,
+    entity_discovery,
+    mailbox_ingestion,
+    reconcile,
+)
 from postmule.agents import classification as classify_agent
 from postmule.agents.integrity import duplicate_detector
 from postmule.core.config import Config
 from postmule.core.platform_paths import default_install_dir
+from postmule.core.run_lock import PipelineLockHeld, run_lock
 from postmule.data import bills as bills_data
 from postmule.data import entities as entity_data
-from postmule.data import forward_to_me as ftm_data
-from postmule.data import notices as notices_data
-from postmule.data import run_log
+from postmule.data import journal, run_log
+from postmule.data import records as records_data
 
 log = logging.getLogger("postmule.pipeline")
 
@@ -100,6 +106,40 @@ def run_daily_pipeline(
     if dry_run:
         log.info("[DRY RUN] No data will be written.")
 
+    # Single-instance lock: a scheduled run and a manual run must not overlap and
+    # double-process the inbox (app #115). A dry run performs no writes and so does
+    # not contend for the lock.
+    lock_cm = None
+    if not dry_run:
+        try:
+            lock_cm = run_lock(data_dir)
+            lock_cm.__enter__()
+        except PipelineLockHeld as exc:
+            log.warning(f"Another PostMule run holds the lock — skipping: {exc}")
+            stats["status"] = "skipped"
+            stats["errors"].append(str(exc))
+            stats["end_time"] = datetime.now(tz=timezone.utc).isoformat()
+            return stats
+        # In-progress marker so a hard crash leaves a trace for the next reconcile.
+        run_log.start_run(data_dir, dict(stats))
+
+    try:
+        return _execute_run(cfg, credentials, data_dir, dry_run, run_id, stats, errors)
+    finally:
+        if lock_cm is not None:
+            lock_cm.__exit__(None, None, None)
+
+
+def _execute_run(
+    cfg: Config,
+    credentials: dict[str, Any],
+    data_dir: Path,
+    dry_run: bool,
+    run_id: str,
+    stats: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    """Build providers, reconcile any crashed-run journal, then run every step."""
     # ------------------------------------------------------------------
     # Build providers
     # ------------------------------------------------------------------
@@ -111,7 +151,7 @@ def run_daily_pipeline(
         stats["errors"].append(str(exc))
         stats["end_time"] = datetime.now(tz=timezone.utc).isoformat()
         if not dry_run:
-            run_log.append_run(data_dir, stats)
+            run_log.finalize_run(data_dir, stats)
             try:
                 smtp_cfg = credentials.get("smtp", {})
                 recipients = cfg.alert_recipients
@@ -123,6 +163,24 @@ def run_daily_pipeline(
             except Exception as alert_exc:
                 log.warning(f"Failed to send pipeline failure alert: {alert_exc}")
         return stats
+
+    # ------------------------------------------------------------------
+    # Crash recovery: replay any journal left by a crashed run before ingesting
+    # new mail, so Drive and the JSON source of truth are consistent (app #115).
+    # ------------------------------------------------------------------
+    if not dry_run:
+        try:
+            rec = reconcile.run_reconcile(
+                providers.drive, providers.folder_ids, data_dir, run_id
+            )
+            if rec["divergent"]:
+                stats["status"] = "partial"
+                for dfid in rec["divergent"]:
+                    errors.append(
+                        f"Reconcile: journaled Drive file {dfid} missing — needs manual review"
+                    )
+        except Exception as exc:
+            log.warning(f"Reconcile failed (non-fatal): {exc}")
 
     known_names = entity_data.get_all_known_names(data_dir)
     confidence_threshold = cfg.confidence_threshold
@@ -237,16 +295,38 @@ def run_daily_pipeline(
 
                     # Move file to correct Drive folder
                     final_file_id = ingested.drive_file_id
+                    category, record_payload = _build_record(
+                        result, ingested.drive_file_id, ingested.received_date
+                    )
+                    journaled = False
                     if not dry_run and ingested.drive_file_id:
+                        inbox_id = providers.folder_ids.get("inbox", "")
                         dest_folder_id = providers.folder_ids.get(
                             _to_folder_key(result.destination_folder),
                             providers.folder_ids.get("needs_review", ""),
                         )
-                        if dest_folder_id and dest_folder_id != providers.folder_ids.get("inbox"):
+                        if dest_folder_id and dest_folder_id != inbox_id:
+                            # Write-ahead journal before the cross-system Drive move so a
+                            # crash before the JSON store is replayable (app #115). Only
+                            # storable categories carry a record to heal.
+                            if record_payload:
+                                journal.begin(
+                                    data_dir,
+                                    {
+                                        "drive_file_id": ingested.drive_file_id,
+                                        "src_folder_id": inbox_id,
+                                        "dest_folder_id": dest_folder_id,
+                                        "suggested_filename": result.suggested_filename,
+                                        "category": category,
+                                        "record_payload": record_payload,
+                                        "run_id": run_id,
+                                    },
+                                )
+                                journaled = True
                             moved_id = providers.drive.move_file(
                                 final_file_id,
                                 dest_folder_id,
-                                providers.folder_ids.get("inbox", ""),
+                                inbox_id,
                             )
                             final_file_id = moved_id or final_file_id
                             renamed_id = providers.drive.rename_file(
@@ -254,11 +334,13 @@ def run_daily_pipeline(
                             )
                             final_file_id = renamed_id or final_file_id
 
-                    # Store in JSON
+                    # Store in JSON, then clear the journal entry (commit point).
                     if not dry_run:
                         _store_processed_mail(
                             data_dir, result, final_file_id, ingested.received_date
                         )
+                        if journaled:
+                            journal.commit(data_dir, ingested.drive_file_id)
 
                     # Collect for daily summary
                     classified_items.append(
@@ -409,9 +491,9 @@ def run_daily_pipeline(
     if providers.safety_agent:
         stats["api_usage"] = providers.safety_agent.summary()
 
-    # Record run
+    # Record run (finalizes the in-progress marker written at start).
     if not dry_run:
-        run_log.append_run(data_dir, stats)
+        run_log.finalize_run(data_dir, stats)
 
     log.info(
         f"=== Run complete: {stats['pdfs_processed']} PDFs, "
@@ -712,7 +794,14 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
     )
 
 
-def _store_processed_mail(data_dir: Path, result, drive_file_id: str, received_date: str) -> None:
+def _build_record(result, drive_file_id: str, received_date: str) -> tuple[str, dict[str, Any]]:
+    """Build the (category, record) a processed file would store.
+
+    Returns an empty record dict for categories that are not persisted (Junk,
+    Personal, NeedsReview). The record is the exact dict consumed by the data
+    layer, so the write-ahead journal can stash it and reconcile can replay it
+    without re-running classification (app #115).
+    """
     base = {
         "date_received": received_date,
         "date_processed": result.processed_date,
@@ -723,22 +812,26 @@ def _store_processed_mail(data_dir: Path, result, drive_file_id: str, received_d
         "filename": result.suggested_filename,
     }
     if result.category == "Bill":
-        bills_data.add_bill(
-            data_dir,
-            {
-                **base,
-                "amount_due": result.amount_due,
-                "due_date": result.due_date,
-                "account_number": result.account_number,
-                "statement_date": result.statement_date,
-                "ach_descriptor": result.ach_descriptor,
-                "status": "pending",
-            },
-        )
-    elif result.category == "Notice":
-        notices_data.add_notice(data_dir, base)
-    elif result.category == "ForwardToMe":
-        ftm_data.add_item(data_dir, {**base, "forwarding_status": "pending"})
+        return "Bill", {
+            **base,
+            "amount_due": result.amount_due,
+            "due_date": result.due_date,
+            "account_number": result.account_number,
+            "statement_date": result.statement_date,
+            "ach_descriptor": result.ach_descriptor,
+            "status": "pending",
+        }
+    if result.category == "Notice":
+        return "Notice", base
+    if result.category == "ForwardToMe":
+        return "ForwardToMe", {**base, "forwarding_status": "pending"}
+    return result.category, {}
+
+
+def _store_processed_mail(data_dir: Path, result, drive_file_id: str, received_date: str) -> None:
+    category, record = _build_record(result, drive_file_id, received_date)
+    if record:
+        records_data.store_record(data_dir, category, record)
 
 
 def _build_finance_provider(provider_type: str, cfg_entry: dict, credentials: dict):

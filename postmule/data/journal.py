@@ -14,9 +14,9 @@ entry is one JSON file keyed by the item's stable Drive file id.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -26,18 +26,19 @@ log = logging.getLogger("postmule.journal")
 
 SCHEMA_VERSION = 1
 
-_SAFE = re.compile(r"[^A-Za-z0-9_-]")
-
 
 def journal_dir(data_dir: Path) -> Path:
     return data_dir / "pending" / "journal"
 
 
 def _entry_path(data_dir: Path, drive_file_id: str) -> Path:
-    # Drive file ids are drawn from [A-Za-z0-9_-]; sanitize defensively so the id
-    # can never escape the journal directory.
-    safe = _SAFE.sub("_", drive_file_id)
-    return journal_dir(data_dir) / f"{safe}.json"
+    # Key the entry file by a short stable hash of the id, never the raw id: a
+    # storage backend's id can be an arbitrary-length filesystem path (local
+    # storage) that would blow past the OS filename/MAX_PATH limit. The id itself
+    # is preserved inside the entry body for reconcile. The hash is a filename, not
+    # a security boundary.
+    digest = hashlib.sha256(drive_file_id.encode("utf-8")).hexdigest()[:32]
+    return journal_dir(data_dir) / f"{digest}.json"
 
 
 def begin(data_dir: Path, entry: dict[str, Any]) -> Path:
