@@ -56,7 +56,13 @@ def save_forward_to_me(data_dir: Path, items: list[dict[str, Any]]) -> None:
 
 
 def add_item(data_dir: Path, item: dict[str, Any]) -> dict[str, Any]:
+    """Add a forward-to-me record. Idempotent by a non-empty drive_file_id (app #115)."""
     items = load_forward_to_me(data_dir)
+    dfid = item.get("drive_file_id")
+    if dfid:
+        for existing in items:
+            if existing.get("drive_file_id") == dfid:
+                return existing
     if "id" not in item or not item["id"]:
         item["id"] = str(uuid.uuid4())
     if "forwarding_status" not in item:

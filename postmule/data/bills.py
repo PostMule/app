@@ -72,9 +72,19 @@ def save_bills(data_dir: Path, bills: list[dict[str, Any]], year: int | None = N
 
 
 def add_bill(data_dir: Path, bill: dict[str, Any]) -> dict[str, Any]:
-    """Add a bill record; assign a UUID if not present. Returns the saved record."""
+    """Add a bill record; assign a UUID if not present. Returns the saved record.
+
+    Idempotent by a non-empty drive_file_id: re-adding a file already stored
+    returns the existing record without appending a duplicate (crash-replay and
+    double-run safety, app #115).
+    """
     year = year_from(bill.get("date_received", ""))
     bills = load_bills(data_dir, year)
+    dfid = bill.get("drive_file_id")
+    if dfid:
+        for existing in bills:
+            if existing.get("drive_file_id") == dfid:
+                return existing
     if "id" not in bill or not bill["id"]:
         bill["id"] = str(uuid.uuid4())
     bills.append(bill)

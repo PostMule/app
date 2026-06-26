@@ -56,8 +56,14 @@ def save_notices(data_dir: Path, notices: list[dict[str, Any]], year: int | None
 
 
 def add_notice(data_dir: Path, notice: dict[str, Any]) -> dict[str, Any]:
+    """Add a notice record. Idempotent by a non-empty drive_file_id (app #115)."""
     year = year_from(notice.get("date_received", ""))
     notices = load_notices(data_dir, year)
+    dfid = notice.get("drive_file_id")
+    if dfid:
+        for existing in notices:
+            if existing.get("drive_file_id") == dfid:
+                return existing
     if "id" not in notice or not notice["id"]:
         notice["id"] = str(uuid.uuid4())
     notices.append(notice)

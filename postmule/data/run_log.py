@@ -6,7 +6,7 @@ Schema per entry:
   "run_id": "uuid",
   "start_time": "YYYY-MM-DDTHH:MM:SS",
   "end_time": "YYYY-MM-DDTHH:MM:SS",
-  "status": "success" | "partial" | "failed",
+  "status": "in-progress" | "success" | "partial" | "failed" | "crashed" | "skipped",
   "emails_found": 5,
   "pdfs_processed": 5,
   "bills": 2,
@@ -50,6 +50,44 @@ def append_run(data_dir: Path, entry: dict[str, Any]) -> None:
         log = log[-365:]
     path = _run_log_file(data_dir)
     atomic_write(path, json.dumps(log, indent=2, ensure_ascii=False))
+
+
+def start_run(data_dir: Path, entry: dict[str, Any]) -> None:
+    """Write an in-progress marker for a starting run so a crash leaves a trace."""
+    marker = {**entry, "status": "in-progress"}
+    append_run(data_dir, marker)
+
+
+def finalize_run(data_dir: Path, entry: dict[str, Any]) -> None:
+    """Replace the in-progress marker for entry's run_id with the final entry.
+
+    Falls back to appending when no marker exists (e.g. a crash that never wrote
+    one, or a legacy caller).
+    """
+    log = load_run_log(data_dir)
+    run_id = entry.get("run_id")
+    for i, e in enumerate(log):
+        if run_id and e.get("run_id") == run_id:
+            log[i] = entry
+            atomic_write(_run_log_file(data_dir), json.dumps(log, indent=2, ensure_ascii=False))
+            return
+    append_run(data_dir, entry)
+
+
+def mark_stale_in_progress_crashed(data_dir: Path, current_run_id: str) -> int:
+    """Relabel orphaned in-progress entries (not the current run) as 'crashed'.
+
+    Returns the number of entries relabelled.
+    """
+    log = load_run_log(data_dir)
+    changed = 0
+    for e in log:
+        if e.get("status") == "in-progress" and e.get("run_id") != current_run_id:
+            e["status"] = "crashed"
+            changed += 1
+    if changed:
+        atomic_write(_run_log_file(data_dir), json.dumps(log, indent=2, ensure_ascii=False))
+    return changed
 
 
 def get_last_run(data_dir: Path) -> dict[str, Any] | None:
