@@ -136,6 +136,13 @@ class TestReconcileBranches:
 
         assert len(load_bills(tmp_path, 2025)) == 1
 
+    def test_empty_folder_ids_flag_divergence(self, tmp_path):
+        # Journal entry with no src/dest folder ids: nothing to inspect, flagged.
+        journal.begin(tmp_path, _journal_entry(src_folder_id="", dest_folder_id=""))
+        drive = FakeDrive({})
+        res = reconcile.run_reconcile(drive, {}, tmp_path, "new-run")
+        assert res["divergent"] == ["drv-1"]
+
     def test_never_calls_delete(self, tmp_path):
         journal.begin(tmp_path, _journal_entry())
         drive = MagicMock()

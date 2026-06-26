@@ -47,6 +47,10 @@ class TestAcquireRelease:
     def test_read_lock_info_none_when_absent(self, tmp_path):
         assert rl.read_lock_info(tmp_path) is None
 
+    def test_read_lock_info_none_when_corrupt(self, tmp_path):
+        (tmp_path / "pipeline.lock").write_text("{ not json", encoding="utf-8")
+        assert rl.read_lock_info(tmp_path) is None
+
 
 class TestDryRun:
     def test_dry_run_does_not_contend(self, tmp_path):
