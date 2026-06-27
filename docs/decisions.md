@@ -169,6 +169,29 @@ documented in `docs/install-cli.md` under "Install contract (per-OS)". See #105.
 
 ---
 
+## LLM Cost Cap
+
+**Monthly dollar cap accrues across days and is on by default; cost books only on success (2026-06-27).**
+`core/api_safety.py` previously compared a monthly budget against `estimated_cost_usd`,
+a counter `_maybe_reset_for_new_day` zeroed every midnight, so the cap could never reach a
+realistic monthly figure; the default budget was also 0.0 (the check is gated on `> 0`), so
+it was off out of the box. The fix splits the dollar accounting from the daily request/token
+counters: `DayUsage` carries `month` + `monthly_cost_usd`; the daily reset zeroes only the
+daily fields, and a separate `_maybe_reset_for_new_month` clears the monthly accumulator on a
+month change. `check_and_record` enforces the budget against projected month-to-date spend
+*before* the call and books no dollars; a new `record_cost()` books the actual cost only after
+a successful response, so failed calls and retries cost nothing.
+
+Default `monthly_cost_budget_usd` is now 5.00 (was 0.00). Pricing is a config number
+`api_safety.usd_per_1k_tokens`, default 0.0. Rejected alternatives: defaulting the price to the
+published paid Gemini rate (would accrue phantom cost on free-tier runs and could false-stop an
+autonomous run); making `monthly_cost_budget_usd` a daily cap (contradicts the name and the
+owner's monthly intent); a model→price lookup table (goes stale, larger surface). The $5.00
+default and the price-0.0 posture are recommendations the owner can override in one config line;
+both are flagged in the owner-63 plan's Dissent. See app #116 / ops issue #63.
+
+---
+
 ## Public Website
 
 **`docs/index.html` is the public landing page, served at postmule.com via GitHub Pages.**
