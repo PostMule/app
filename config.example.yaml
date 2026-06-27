@@ -170,7 +170,11 @@ api_safety:
   daily_request_limit: 1400     # Hard stop; default matches Gemini free tier (1500/day)
   daily_token_limit: 900000     # Hard stop; default matches Gemini free tier (1M/day)
   warn_at_percent: 80           # Warn when 80% of any limit is used
-  monthly_cost_budget_usd: 0.00 # $0 = free tier only; raise for paid tiers
+  usd_per_1k_tokens: 0.00       # Price per 1000 tokens. 0 = free tier (records $0, so
+                                # the budget below never fires). Set to your paid model's
+                                # rate to make the dollar cap active.
+  monthly_cost_budget_usd: 5.00 # Month-to-date dollar cap (on by default). Only bites
+                                # once usd_per_1k_tokens is non-zero; raise/lower to taste.
 
 # ---------------------------------------------------------------------------
 # classification

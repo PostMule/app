@@ -36,6 +36,11 @@ class DayUsage:
     requests: int = 0
     tokens: int = 0
     estimated_cost_usd: float = 0.0
+    # Monthly accumulators (owner-63 / app #116). The daily counters above reset
+    # every calendar day; these reset only when the calendar month changes, so a
+    # monthly dollar cap is compared against month-to-date spend, not a single day's.
+    month: str = ""
+    monthly_cost_usd: float = 0.0
 
 
 class APISafetyAgent:
@@ -83,11 +88,15 @@ class APISafetyAgent:
             APILimitError: If a hard limit would be exceeded.
         """
         self._maybe_reset_for_new_day()
+        self._maybe_reset_for_new_month()
         usage = self._usage
 
         new_requests = usage.requests + 1
         new_tokens = usage.tokens + tokens
-        new_cost = usage.estimated_cost_usd + cost_usd
+        # Estimated month-to-date spend if this call were made. Used for the pre-call
+        # budget gate only; the dollars are not booked here (see record_cost) so a
+        # failed API call after this check costs nothing.
+        projected_monthly_cost = usage.monthly_cost_usd + cost_usd
 
         # Hard limits
         if new_requests > self.limits.daily_request_limit:
@@ -105,10 +114,11 @@ class APISafetyAgent:
                 "PostMule will resume processing tomorrow."
             )
 
-        if self.monthly_budget_usd > 0 and new_cost > self.monthly_budget_usd:
+        if self.monthly_budget_usd > 0 and projected_monthly_cost > self.monthly_budget_usd:
             raise APILimitError(
                 f"Monthly cost budget exceeded "
-                f"(${self.monthly_budget_usd:.2f}/month limit).\n"
+                f"(${self.monthly_budget_usd:.2f}/month limit; "
+                f"${usage.monthly_cost_usd:.2f} spent month-to-date).\n"
                 "Adjust monthly_cost_budget_usd in config.yaml."
             )
 
@@ -128,14 +138,17 @@ class APISafetyAgent:
             )
 
         if not dry_run:
+            # Book the request/token counters pre-call (conservative against provider
+            # quota — a failed attempt may still have reached the provider). Dollars are
+            # booked only on success via record_cost so failures never consume budget.
             usage.requests = new_requests
             usage.tokens = new_tokens
-            usage.estimated_cost_usd = new_cost
             self._save()
 
     def summary(self) -> dict[str, Any]:
         """Return current day's usage as a dict (for inclusion in daily email)."""
         self._maybe_reset_for_new_day()
+        self._maybe_reset_for_new_month()
         u = self._usage
         return {
             "provider": self.provider,
@@ -152,13 +165,16 @@ class APISafetyAgent:
     # ------------------------------------------------------------------
 
     def _load(self) -> DayUsage:
+        today = date.today().isoformat()
         if not self.state_file.exists():
-            return DayUsage(date=date.today().isoformat())
+            return DayUsage(date=today, month=today[:7])
         try:
             raw = json.loads(self.state_file.read_text(encoding="utf-8"))
+            # Old-format files (pre owner-63) carry no month/monthly_cost_usd keys;
+            # the dataclass defaults fill them and the first check sets the month key.
             return DayUsage(**raw)
         except Exception:
-            return DayUsage(date=date.today().isoformat())
+            return DayUsage(date=today, month=today[:7])
 
     def record_additional_tokens(self, extra_tokens: int) -> None:
         """
@@ -171,6 +187,24 @@ class APISafetyAgent:
         self._usage.tokens += extra_tokens
         self._save()
 
+    def record_cost(self, actual_cost_usd: float) -> None:
+        """
+        Book the actual dollar cost of a completed API call after it succeeded.
+
+        Adds to both the daily display total (estimated_cost_usd, shown in the daily
+        email) and the monthly accumulator (monthly_cost_usd, enforced by the budget
+        gate in check_and_record). Called only on success so a failed call books no
+        dollars. Like record_additional_tokens, this does not re-check limits — the
+        call already happened.
+        """
+        if actual_cost_usd <= 0:
+            return
+        self._usage.estimated_cost_usd += actual_cost_usd
+        self._usage.monthly_cost_usd += actual_cost_usd
+        log.debug(f"{self.provider}: recorded ${actual_cost_usd:.6f} (month-to-date "
+                  f"${self._usage.monthly_cost_usd:.4f})")
+        self._save()
+
     def _save(self) -> None:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         data = {
@@ -178,6 +212,8 @@ class APISafetyAgent:
             "requests": self._usage.requests,
             "tokens": self._usage.tokens,
             "estimated_cost_usd": self._usage.estimated_cost_usd,
+            "month": self._usage.month,
+            "monthly_cost_usd": self._usage.monthly_cost_usd,
         }
         content = json.dumps(data, indent=2)
         fd, tmp = tempfile.mkstemp(dir=self.state_file.parent, suffix=".tmp")
@@ -195,8 +231,21 @@ class APISafetyAgent:
     def _maybe_reset_for_new_day(self) -> None:
         today = date.today().isoformat()
         if self._usage.date != today:
-            log.debug(f"{self.provider}: new day — resetting usage counters")
-            self._usage = DayUsage(date=today)
+            log.debug(f"{self.provider}: new day — resetting daily usage counters")
+            # Reset only the daily fields; the monthly accumulator persists across days
+            # (it is cleared separately by _maybe_reset_for_new_month).
+            self._usage.date = today
+            self._usage.requests = 0
+            self._usage.tokens = 0
+            self._usage.estimated_cost_usd = 0.0
+            self._save()
+
+    def _maybe_reset_for_new_month(self) -> None:
+        this_month = date.today().isoformat()[:7]
+        if self._usage.month != this_month:
+            log.debug(f"{self.provider}: new month — resetting monthly cost accumulator")
+            self._usage.month = this_month
+            self._usage.monthly_cost_usd = 0.0
             self._save()
 
 
@@ -208,7 +257,10 @@ def build_safety_agent(config, provider_name: str, state_dir: Path) -> APISafety
         daily_token_limit=safety_cfg.get("daily_token_limit", 900_000),
         warn_at_percent=safety_cfg.get("warn_at_percent", 80) / 100,
     )
-    monthly_budget = safety_cfg.get("monthly_cost_budget_usd", 0.0)
+    # Default the monthly dollar cap ON (owner-63 / app #116) so a paid-key user who
+    # forgets to set one is still protected. The free-tier default records $0 of cost
+    # (usd_per_1k_tokens default 0.0), so this cap never fires there — no false stop.
+    monthly_budget = safety_cfg.get("monthly_cost_budget_usd", 5.00)
     return APISafetyAgent(
         provider=provider_name,
         limits=limits,

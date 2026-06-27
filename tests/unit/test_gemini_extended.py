@@ -185,3 +185,64 @@ class TestGeminiClassifyWithMockedClient:
         call_args = mock_client.generate_content.call_args[0][0]
         assert "Alice" in call_args
         assert "Bob" in call_args
+
+
+class TestGeminiCostWiring:
+    """owner-63 / app #116: gemini passes an estimated cost to the pre-call gate and
+    books the actual cost only after a successful response."""
+
+    def _mock_response(self, total_tokens=100):
+        resp = MagicMock()
+        resp.text = json.dumps({
+            "category": "Bill", "confidence": 0.9, "sender": "X",
+            "recipients": [], "amount_due": 10.0, "due_date": None,
+            "account_number": None, "summary": "test",
+        })
+        resp.usage_metadata.total_token_count = total_tokens
+        return resp
+
+    def test_passes_estimated_cost_to_gate_when_priced(self):
+        safety = MagicMock()
+        provider = GeminiProvider(api_key="key", safety_agent=safety, usd_per_1k_tokens=0.50)
+        client = MagicMock()
+        client.generate_content.return_value = self._mock_response()
+        provider._client = client
+
+        provider.classify("some text")
+        cost = safety.check_and_record.call_args.kwargs["cost_usd"]
+        assert cost > 0
+
+    def test_records_actual_cost_on_success(self):
+        safety = MagicMock()
+        provider = GeminiProvider(api_key="key", safety_agent=safety, usd_per_1k_tokens=2.0)
+        client = MagicMock()
+        client.generate_content.return_value = self._mock_response(total_tokens=1000)
+        provider._client = client
+
+        provider.classify("some text")
+        # 1000 tokens at $2.00 / 1k = $2.00 booked on success.
+        safety.record_cost.assert_called_once()
+        assert safety.record_cost.call_args.args[0] == pytest.approx(2.0)
+
+    def test_does_not_record_cost_on_failure(self):
+        safety = MagicMock()
+        provider = GeminiProvider(api_key="key", safety_agent=safety, usd_per_1k_tokens=2.0)
+        client = MagicMock()
+        client.generate_content.side_effect = Exception("API down")
+        provider._client = client
+
+        with pytest.raises(RuntimeError):
+            provider.classify("some text")
+        safety.record_cost.assert_not_called()
+
+    def test_free_tier_zero_price_books_zero(self):
+        safety = MagicMock()
+        provider = GeminiProvider(api_key="key", safety_agent=safety, usd_per_1k_tokens=0.0)
+        client = MagicMock()
+        client.generate_content.return_value = self._mock_response()
+        provider._client = client
+
+        provider.classify("some text")
+        assert safety.check_and_record.call_args.kwargs["cost_usd"] == 0.0
+        # record_cost is a no-op for $0; the call is skipped.
+        safety.record_cost.assert_not_called()

@@ -606,7 +606,10 @@ def _build_providers(cfg: Config, credentials: dict, data_dir: Path):
     )
 
     safety_agent = build_safety_agent(cfg, llm_provider_name, data_dir)
-    llm = _build_llm_provider(llm_provider_cfg, credentials, safety_agent)
+    usd_per_1k_tokens = float(cfg.get("api_safety", "usd_per_1k_tokens") or 0.0)
+    llm = _build_llm_provider(
+        llm_provider_cfg, credentials, safety_agent, usd_per_1k_tokens
+    )
 
     # Ensure storage folders exist
     folders_cfg = storage_provider_cfg.get("folders") or {}
@@ -751,7 +754,7 @@ def _build_spreadsheet_provider(
     )
 
 
-def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
+def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent, usd_per_1k_tokens=0.0):
     """Instantiate the configured LLM provider."""
     service = cfg_entry.get("service", "gemini")
     llm_creds = credentials.get(service, {})
@@ -763,6 +766,7 @@ def _build_llm_provider(cfg_entry: dict, credentials: dict, safety_agent):
             llm_creds.get("api_key", ""),
             safety_agent=safety_agent,
             model=cfg_entry.get("model", "gemini-1.5-flash"),
+            usd_per_1k_tokens=usd_per_1k_tokens,
         )
 
     if service == "openai":

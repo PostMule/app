@@ -219,7 +219,8 @@ def api_settings():
             "daily_request_limit": intv("api_daily_req", 1400),
             "daily_token_limit": intv("api_daily_tok", 900000),
             "warn_at_percent": intv("api_warn_pct", 80),
-            "monthly_cost_budget_usd": floatv("api_monthly_usd", 0.00),
+            "usd_per_1k_tokens": floatv("api_usd_per_1k", 0.00),
+            "monthly_cost_budget_usd": floatv("api_monthly_usd", 5.00),
         },
         "classification": {
             "categories": existing.get("classification", {}).get("categories", []),

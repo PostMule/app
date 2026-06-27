@@ -62,15 +62,25 @@ class GeminiProvider:
     Gemini 1.5 Flash LLM provider.
 
     Args:
-        api_key:      Gemini API key from credentials.
-        safety_agent: APISafetyAgent to check/record usage before each call.
-        model:        Model name (default: gemini-1.5-flash).
+        api_key:          Gemini API key from credentials.
+        safety_agent:     APISafetyAgent to check/record usage before each call.
+        model:            Model name (default: gemini-1.5-flash).
+        usd_per_1k_tokens: Dollar price per 1000 tokens for the monthly cost cap.
+                          Default 0.0 = free tier, so recorded cost stays $0 and the
+                          budget gate never fires (owner-63 / app #116).
     """
 
-    def __init__(self, api_key: str, safety_agent=None, model: str = _MODEL) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        safety_agent=None,
+        model: str = _MODEL,
+        usd_per_1k_tokens: float = 0.0,
+    ) -> None:
         self.api_key = api_key
         self.safety_agent = safety_agent
         self.model_name = model
+        self.usd_per_1k_tokens = usd_per_1k_tokens
         self._client = None
 
     def _get_client(self):
@@ -140,9 +150,12 @@ class GeminiProvider:
 
         # Estimate tokens (rough: 1 token per 4 chars)
         estimated_tokens = len(prompt) // 4 + 200
+        estimated_cost = estimated_tokens / 1000 * self.usd_per_1k_tokens
 
+        # Pre-call gate: raises before the API call if this would push month-to-date
+        # spend over the budget, so a blocked call incurs no spend.
         if self.safety_agent:
-            self.safety_agent.check_and_record(tokens=estimated_tokens)
+            self.safety_agent.check_and_record(tokens=estimated_tokens, cost_usd=estimated_cost)
 
         log.debug(f"Sending classification request (~{estimated_tokens} tokens estimated)")
         client = self._get_client()
@@ -157,9 +170,14 @@ class GeminiProvider:
                 f"Gemini classification failed: {exc}\nCheck your API key and network connection."
             ) from exc
 
-        # Correct the token count if actual usage exceeded the pre-call estimate
-        if self.safety_agent and tokens_used > estimated_tokens:
-            self.safety_agent.record_additional_tokens(tokens_used - estimated_tokens)
+        # Call succeeded — book the actual token count and dollar cost. Booking happens
+        # only here (not in the pre-call gate) so a failed call books nothing.
+        if self.safety_agent:
+            if tokens_used > estimated_tokens:
+                self.safety_agent.record_additional_tokens(tokens_used - estimated_tokens)
+            actual_cost = tokens_used / 1000 * self.usd_per_1k_tokens
+            if actual_cost > 0:
+                self.safety_agent.record_cost(actual_cost)
 
         return self._parse_response(raw, tokens_used)
 
